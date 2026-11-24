@@ -296,13 +296,13 @@ const S={sb:null,demo:typeof DEMO!=="undefined"?DEMO:null,accounts:[],ent:{},dai
 const tzToday=()=>{const p=new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Lisbon"}).format(new Date());return new Date(p+"T00:00:00")};
 const iso=d=>d.toISOString().slice(0,10);
 const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
-const PRESETS=[["today","Hoje"],["yesterday","Ontem"],["last_7d","Últimos 7 dias"],["last_14d","Últimos 14 dias"],["last_30d","Últimos 30 dias"],["this_month","Este mês"],["last_month","Mês passado"],["max","Máximo (90 dias)"]];
+const PRESETS=[["today","Hoje"],["yesterday","Ontem"],["last_7d","Últimos 7 dias"],["last_14d","Últimos 14 dias"],["last_30d","Últimos 30 dias"],["this_month","Este mês"],["last_month","Mês passado"],["max","Máximo"]];
 function range(p){const t=tzToday();let a,b=t;
   switch(p){case"today":a=t;break;case"yesterday":a=b=addD(t,-1);break;case"last_7d":a=addD(t,-7);b=addD(t,-1);break;
   case"last_14d":a=addD(t,-14);b=addD(t,-1);break;case"last_30d":a=addD(t,-30);b=addD(t,-1);break;
   case"this_month":a=new Date(t.getFullYear(),t.getMonth(),1);break;
   case"last_month":a=new Date(t.getFullYear(),t.getMonth()-1,1);b=new Date(t.getFullYear(),t.getMonth(),0);break;
-  case"max":a=addD(t,-90);break;default:return[S.since,S.until]}
+  case"max":a=new Date(t.getFullYear(),t.getMonth()-37,t.getDate()+1);break;default:return[S.since,S.until]}
   const f=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;return[f(a),f(b)]}
 const fmtD=s=>{const[y,m,d]=s.split("-");return`${+d} ${["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][m-1]}`};
 

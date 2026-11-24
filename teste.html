@@ -557,7 +557,8 @@ function totals(R,lv){const T={level:lv,_e:{},results:0,cur:R[0]?.cur||"EUR"};co
   return T}
 
 /* ---------- render ---------- */
-function render(){const R=(S.loading||S.loadErr)?[]:rows(),cols=colList(),lv=S.level,sel=S.sel[lv];const all=S.acct==="all";const showCli0=all&&lv!=="account";
+function render(){const vk=[S.level,S.acct,S.filter,S.q,S.preset,S.since,S.until,S.sort.k,S.sort.d,...Object.values(S.sel).map(x=>[...x].join())].join("|");if(vk!==S.vk){S.vk=vk;S.lim=300}
+  const R=(S.loading||S.loadErr)?[]:rows(),cols=colList(),lv=S.level,sel=S.sel[lv];const all=S.acct==="all";const showCli0=all&&lv!=="account";
   const ar=k=>S.sort.k===k?`<span class="ar">${S.sort.d>0?"▲":"▼"}</span>`:"";
   const lvName={account:"Cliente",campaign:"Campanha",adset:"Conjunto de anúncios",ad:"Anúncio"}[lv];
   $("#tbl thead").innerHTML=`<tr><th class="c-chk"><input type="checkbox" id="chkAll" ${R.length&&R.every(r=>sel.has(r.id))?"checked":""}></th><th class="c-tog">Ativar</th>
@@ -566,7 +567,8 @@ function render(){const R=(S.loading||S.loadErr)?[]:rows(),cols=colList(),lv=S.l
   if(!R.length){$("#tbl tbody").innerHTML=`<tr><td colspan="${cols.length+(showCli0?4:3)}" class="empty" style="text-align:center">${S.loading?'<b>A carregar os dados do período…</b>':S.loadErr?'<b style="color:#c0392b">Não consegui carregar os dados: '+esc(S.loadErr)+'</b><br><button class="btn" id="retryLoad" style="margin-top:8px">Tentar de novo</button>':'Nada para mostrar com estes filtros. Experimente "Tudo" ou outro período.'}</td></tr>`;$("#tbl tfoot").innerHTML="";}
   else{
   const showCli=all&&lv!=="account";
-  $("#tbl tbody").innerHTML=R.map(r=>{const e=r._e;
+  const LIM=S.lim||300,RV=R.slice(0,LIM);/* desenha 300 linhas de cada vez (milhares de linhas congelavam a página); os totais usam todas */
+  $("#tbl tbody").innerHTML=RV.map(r=>{const e=r._e;
     if(lv==="account")return`<tr data-id="${e.id}" class="${sel.has(e.id)?"sel":""}"><td class="c-chk"><input type="checkbox" data-chk="${e.id}" ${sel.has(e.id)?"checked":""}></td>
       <td class="c-tog"><span class="muted">—</span></td>
       <td class="c-name"><div class="nm"><div class="tx"><a data-name="${e.id}" title="${esc(e.name)}">${esc(e.name)}</a><div class="cli">act_${esc(e.id)}</div>
@@ -582,7 +584,7 @@ function render(){const R=(S.loading||S.loadErr)?[]:rows(),cols=colList(),lv=S.l
       <td class="c-name"><div class="nm">${thumb}<div class="tx"><a data-name="${e.id}" title="${esc(nm)}">${esc(nm)}</a>${nd?'<span class="dpill">NOME EM RASCUNHO</span>':""}
       ${all?"":`<div class="cli">${esc(e.id)}</div>`}<div class="acts">${drill}<span data-ren="${e.id}">Editar nome</span><span data-copy="${e.id}">Copiar ID</span></div></div></div></td>
       ${showCli?`<td class="l">${esc(r.client)}</td>`:""}
-      ${cols.map(k=>`<td class="${COLS[k].l?"l":""}">${COLS[k].f(COLS[k].v(r),r)}</td>`).join("")}</tr>`}).join("");
+      ${cols.map(k=>`<td class="${COLS[k].l?"l":""}">${COLS[k].f(COLS[k].v(r),r)}</td>`).join("")}</tr>`}).join("")+(R.length>LIM?`<tr><td colspan="${cols.length+(showCli?4:3)}" style="text-align:center"><button class="btn" id="more">Mostrar mais ${Math.min(300,R.length-LIM)} (de ${R.length})</button></td></tr>`:"");
   const T=totals(R,lv);
   const curs=new Set(R.map(r=>r.cur));
   $("#tbl tfoot").innerHTML=`<tr><td class="c-chk"></td><td class="c-tog"></td><td class="c-name l">Resultados de ${R.length} ${R.length===1?{account:"cliente",campaign:"campanha",adset:"conjunto",ad:"anúncio"}[lv]:{account:"clientes",campaign:"campanhas",adset:"conjuntos",ad:"anúncios"}[lv]}${T._scope?' <span class="muted" title="Como no Gestor da Meta: o total inclui itens excluídos ou arquivados que tiveram entrega no período">ⓘ</span>':""}${curs.size>1?' <span class="muted">(moedas mistas)</span>':""}</td>${showCli?"<td></td>":""}
@@ -617,7 +619,7 @@ function renderCards(R,cols,lv){const el=$("#cards");
   const curs=new Set(R.map(r=>r.cur)),T=totals(R,lv),sp=T.spend,res=T.results;
   const sum=`<div class="csum"><b>${R.length} ${lvP}</b><span>${curs.size>1?"Moedas mistas":money(sp,R[0].cur)+" usados"}</span>${res!=null&&T.rtype?`<span>${num(res)} ${esc(indLbl(T.rtype).toLowerCase())}</span>`:""}<span>${per}</span></div>${covWarn()}`;
   const cell=(k,r)=>`<div class="kv"><span class="k" title="${esc(COLS[k].t)}">${esc(COLS[k].t)}</span><span class="v">${COLS[k].f(COLS[k].v(r),r)}</span></div>`;
-  el.innerHTML=sum+R.map(r=>{const e=r._e,isA=lv==="account";
+  const LIMC=S.lim||300;el.innerHTML=sum+R.slice(0,LIMC).map(r=>{const e=r._e,isA=lv==="account";
     const nd=isA?null:draftOf(e.id,"name"),nm=nd?nd.new_value:e.name;
     const on=!isA&&effStatus(e)==="ACTIVE",blocked=["DELETED","ARCHIVED"].includes(e.effective_status);
     const dr=!isA&&S.drafts.some(d=>d.entity_id===e.id&&["draft","error"].includes(d.state));
@@ -629,7 +631,7 @@ function renderCards(R,cols,lv){const el=$("#cards");
       ${isA?"":`<span class="tg ${on?"on":""} ${blocked?"dis":""}" data-tog="${e.id}" title="${on?"Desativar":"Ativar"}"></span>`}</div>
       ${main.length?`<div class="kpis">${main.map(k=>cell(k,r)).join("")}</div>`:""}
       ${rest.length?`<details class="more"><summary>Mais ${rest.length} métricas</summary><div class="kgrid">${rest.map(k=>cell(k,r)).join("")}</div></details>`:""}
-      <div class="cact">${drill}${isA?"":`<button class="btn sm ghost" data-ren="${e.id}">Editar nome</button>`}<button class="btn sm ghost" data-copy="${isA?"act_":""}${e.id}">Copiar ID</button></div></div>`}).join("")}
+      <div class="cact">${drill}${isA?"":`<button class="btn sm ghost" data-ren="${e.id}">Editar nome</button>`}<button class="btn sm ghost" data-copy="${isA?"act_":""}${e.id}">Copiar ID</button></div></div>`}).join("")+(R.length>LIMC?`<div style="text-align:center;padding:8px"><button class="btn" id="more">Mostrar mais (${R.length-LIMC} por ver)</button></div>`:"")}
 MQ.addEventListener("change",()=>{if(S.accounts.length)render()});
 
 /* ---------- menus ---------- */
@@ -758,6 +760,7 @@ document.addEventListener("click",async ev=>{const t=ev.target;
   if(t.id==="mDiscAll"){const pend=S.drafts.filter(d=>["draft","error"].includes(d.state));if(!S.demo)await S.sb.from("ads_drafts").delete().in("id",pend.map(d=>d.id));S.drafts=S.drafts.filter(d=>!pend.includes(d));review();render();return}
   if(t.id==="mPub"){publish();return}if(t.id==="mCancel"){review();return}if(t.id==="mGo"){await publishGo();return}
   if(t.id==="sortDir"){S.sort={k:S.sort.k,d:-S.sort.d};LS.set("sort",S.sort);render();return}
+  if(t.id==="more"){S.lim=(S.lim||300)+300;render();return}
   if(t.closest&&t.closest("#syncNow")){syncNow();return}if(t.id==="retryLoad"){S.accounts.length?refreshDaily():start();return}
 });
 document.addEventListener("change",async ev=>{const t=ev.target;

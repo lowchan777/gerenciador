@@ -327,12 +327,12 @@ function rtype(adsetId,row){let g=GOAL[S.ent[adsetId]?.optimization_goal]||null;
 const COLS={
   status:{t:"Veiculação",g:"Entrega",l:1,v:r=>r._st,f:(v,r)=>stCell(r)},
   budget:{t:"Orçamento",g:"Entrega",v:r=>r._budget??-1,f:(v,r)=>budgetCell(r)},
-  results:{t:"Resultados",g:"Desempenho",v:r=>r.results,f:(v,r)=>`${num(v)}<span class="sub2"${r._mixed?' title="Várias otimizações: mostra a que tem mais investimento"':""}>${esc(r.rtype?RLBL[r.rtype]+(r._mixed?" · principal":""):"Vários")}</span>`},
+  results:{t:"Resultados",g:"Desempenho",v:r=>r.results,f:(v,r)=>`${num(v)}<span class="sub2">${esc(r.rtype?RLBL[r.rtype]:"Vários")}</span>`},
   cpr:{t:"Custo por resultado",g:"Desempenho",v:r=>r.results?r.spend/r.results:null,f:(v,r)=>`${money(v,r.cur)}<span class="sub2">${r.rtype?"Por "+RLBL[r.rtype].toLowerCase().replace(/s$/,""):""}</span>`},
   spend:{t:"Valor usado",g:"Desempenho",v:r=>r.spend,f:(v,r)=>money(v,r.cur)},
   impressions:{t:"Impressões",g:"Entrega",v:r=>r.impressions,f:num},
-  reach:{t:"Alcance ≈",g:"Entrega",v:r=>r.reach,f:num,tip:"Soma do alcance diário (aproximado)"},
-  freq:{t:"Frequência ≈",g:"Entrega",v:r=>r.reach?r.impressions/r.reach:null,f:dec},
+  reach:{t:"Alcance",g:"Entrega",v:r=>r.reach,f:v=>v==null?'<span class="muted" title="A pedir à Meta">…</span>':num(v)},
+  freq:{t:"Frequência",g:"Entrega",v:r=>r.reach?r.impressions/r.reach:null,f:dec},
   cpm:{t:"CPM",g:"Entrega",v:r=>r.impressions?r.spend/r.impressions*1000:null,f:(v,r)=>money(v,r.cur)},
   link_clicks:{t:"Cliques no link",g:"Cliques",v:r=>r.link_clicks,f:num},
   ctr:{t:"CTR (link)",g:"Cliques",v:r=>r.impressions?r.link_clicks/r.impressions*100:null,f:pct},
@@ -343,13 +343,13 @@ const COLS={
   cplpv:{t:"Custo por visualização da página",g:"Funil",v:r=>r.lpv?r.spend/r.lpv:null,f:(v,r)=>money(v,r.cur)},
   r_lpv_clk:{t:"VP / cliques no link",g:"Taxas",v:r=>r.link_clicks?r.lpv/r.link_clicks*100:null,f:pct,tip:"Visualizações da página ÷ cliques no link"},
   r_lpv_imp:{t:"VP / impressões",g:"Taxas",v:r=>r.impressions?r.lpv/r.impressions*100:null,f:pct3,tip:"Visualizações da página ÷ impressões"},
-  r_lpv_reach:{t:"VP / alcance ≈",g:"Taxas",v:r=>r.reach?r.lpv/r.reach*100:null,f:pct3,tip:"Visualizações da página ÷ alcance (soma diária)"},
+  r_lpv_reach:{t:"VP / alcance",g:"Taxas",v:r=>r.reach?r.lpv/r.reach*100:null,f:pct3,tip:"Visualizações da página ÷ alcance"},
   leads:{t:"Leads",g:"Leads",v:r=>r.leads,f:num},
   cpl:{t:"Custo por lead",g:"Leads",v:r=>r.leads?r.spend/r.leads:null,f:(v,r)=>money(v,r.cur)},
   cvr:{t:"Leads / cliques no link",g:"Taxas",v:r=>r.link_clicks?r.leads/r.link_clicks*100:null,f:pct},
   r_lead_lpv:{t:"Leads / VP",g:"Taxas",v:r=>r.lpv?r.leads/r.lpv*100:null,f:pct,tip:"Leads ÷ visualizações da página (conversão da página)"},
   r_lead_imp:{t:"Leads / impressões",g:"Taxas",v:r=>r.impressions?r.leads/r.impressions*100:null,f:pct3},
-  r_lead_reach:{t:"Leads / alcance ≈",g:"Taxas",v:r=>r.reach?r.leads/r.reach*100:null,f:pct3},
+  r_lead_reach:{t:"Leads / alcance",g:"Taxas",v:r=>r.reach?r.leads/r.reach*100:null,f:pct3},
   messages:{t:"Conversas iniciadas",g:"Mensagens",v:r=>r.messages,f:num},
   cpmsg:{t:"Custo por conversa",g:"Mensagens",v:r=>r.messages?r.spend/r.messages:null,f:(v,r)=>money(v,r.cur)},
   checkouts:{t:"Finalizações de compra iniciadas",g:"Vendas",v:r=>S.noExt?null:r.checkouts,f:num},
@@ -359,7 +359,7 @@ const COLS={
   r_buy_co:{t:"Compras / checkout",g:"Taxas",v:r=>!S.noExt&&r.checkouts?r.purchases/r.checkouts*100:null,f:pct},
   r_buy_lpv:{t:"Compras / VP",g:"Taxas",v:r=>r.lpv?r.purchases/r.lpv*100:null,f:pct},
   r_buy_imp:{t:"Compras / impressões",g:"Taxas",v:r=>r.impressions?r.purchases/r.impressions*100:null,f:pct3},
-  r_buy_reach:{t:"Compras / alcance ≈",g:"Taxas",v:r=>r.reach?r.purchases/r.reach*100:null,f:pct3},
+  r_buy_reach:{t:"Compras / alcance",g:"Taxas",v:r=>r.reach?r.purchases/r.reach*100:null,f:pct3},
   pvalue:{t:"Valor de conversão",g:"Vendas",v:r=>r.purchase_value,f:(v,r)=>money(v,r.cur)},
   roas:{t:"ROAS",g:"Vendas",v:r=>r.spend?r.purchase_value/r.spend:null,f:dec},
   cpp:{t:"Custo por compra",g:"Vendas",v:r=>r.purchases?r.spend/r.purchases:null,f:(v,r)=>money(v,r.cur)},
@@ -369,7 +369,7 @@ const COLS={
   r_fol_vis:{t:"Seguimentos / visitas ao perfil",g:"Instagram",v:r=>!S.noExt&&r.ig_visits?r.ig_follows/r.ig_visits*100:null,f:pct},
   ig_follows:{t:"Seguimentos no Instagram",g:"Instagram",v:r=>S.noExt?null:r.ig_follows,f:num},
   cpf:{t:"Custo por seguidor",g:"Instagram",v:r=>!S.noExt&&r.ig_follows?r.spend/r.ig_follows:null,f:(v,r)=>money(v,r.cur)},
-  r_fol_reach:{t:"Seguimentos / alcance ≈",g:"Instagram",v:r=>!S.noExt&&r.reach?r.ig_follows/r.reach*100:null,f:pct3},
+  r_fol_reach:{t:"Seguimentos / alcance",g:"Instagram",v:r=>!S.noExt&&r.reach?r.ig_follows/r.reach*100:null,f:pct3},
   r_fol_imp:{t:"Seguimentos / impressões",g:"Instagram",v:r=>!S.noExt&&r.impressions?r.ig_follows/r.impressions*100:null,f:pct3},
   end:{t:"Termina em",g:"Entrega",v:r=>r._end?r._end.getTime():null,f:(v,r)=>r._end?fmtD(iso(r._end)):'<span class="muted">Contínuo</span>'},
   created:{t:"Criado em",g:"Entrega",v:r=>r._created||"",f:v=>v?fmtD(v.slice(0,10)):"—"},
@@ -419,14 +419,26 @@ async function loadAll(){
   const hot=!S.fullEnt;
   const [a,e,dr]=await Promise.all([pageAll("ads_accounts","*"),pageAll(hot?"ads_entities_hot":"ads_entities","*",q=>q.order("id")).catch(()=>pageAll("ads_entities","*",q=>q.order("id"))),
     pageAll("ads_drafts","*",q=>q.in("state",["draft","queued","publishing","error"])).catch(()=>[]),loadDaily()]);
-  S.accounts=a;S.ent=Object.fromEntries(e.map(x=>[x.id,x]));S.drafts=dr;
+  S.accounts=a;S.ent=Object.fromEntries(e.map(x=>[x.id,x]));S.drafts=dr;await loadReach();
   if(hot&&!S.bgEnt){S.bgEnt=true;setTimeout(async()=>{try{const all=await pageAll("ads_entities","*",q=>q.order("id"));for(const x of all)S.ent[x.id]=x;S.fullEnt=true;render()}catch(_){}finally{S.bgEnt=false}},50)}}
 async function loadDaily(){if(S.demo)return;
   const[s,u]=range(S.preset);const base="account_id,day,ad_id,campaign_id,adset_id,spend,impressions,reach,clicks,link_clicks,lpv,leads,messages,purchases,purchase_value,video_views";
   const cols=S.noExt?base:base+","+EXT.join(",");
   let out;try{out=await pageAll("ads_daily",cols,q=>{q=q.gte("day",s).lte("day",u).order("day").order("ad_id");return S.acct!=="all"?q.eq("account_id",S.acct):q})}
   catch(error){if(!S.noExt&&/column|does not exist|checkouts|ig_follows|ig_visits/i.test(error.message||"")){S.noExt=true;return loadDaily()}throw error}
-  S.daily=out;S.dailyKey=s+u+S.acct}
+  S.daily=out;S.dailyKey=s+u+S.acct;if(S.accounts&&S.accounts.length)await loadReach()}
+async function loadReach(){if(S.demo)return;const[s,u]=range(S.preset);S.reach={};S.reachKey=s+u;
+  const rows=await pageAll("ads_reach","level,entity_id,reach,impressions,fetched_at",q=>{q=q.eq("since",s).eq("until",u).order("entity_id");return S.acct!=="all"?q.eq("account_id",S.acct):q}).catch(()=>[]);
+  for(const x of rows)S.reach[x.level+":"+x.entity_id]=x;
+  const accs=S.acct==="all"?S.accounts.filter(a=>!a.error).map(a=>a.account_id):[S.acct];
+  const falta=accs.some(a=>!S.reach["account:"+a]&&(S.daily||[]).some(r=>r.account_id===a&&+r.impressions>0));
+  if(falta)askReach(s,u)}
+async function askReach(s,u){const key=s+u+S.acct;if(S.reachAsk===key)return;S.reachAsk=key;
+  try{const{data,error}=await S.sb.from("ads_reach_req").insert({account_id:S.acct||"all",since:s,until:u}).select().single();if(error)throw error;
+    const t0=Date.now();while(Date.now()-t0<300000){await new Promise(r=>setTimeout(r,4000));
+      const{data:r}=await S.sb.from("ads_reach_req").select("result").eq("id",data.id).single();
+      if(r&&r.result&&/^(ok|erro)/.test(r.result)){if(S.reachKey===s+u){await loadReach();render()}return}}}
+  catch(e){console.warn("alcance",e)}finally{if(S.reachAsk===key)S.reachAsk=null}}
 async function loadDrafts(){if(S.demo)return;const{data}=await S.sb.from("ads_drafts").select("*").in("state",["draft","queued","publishing","error","published"]).order("created_at");
   const now=Date.now();S.drafts=(data||[]).filter(d=>d.state!=="published"||now-new Date(d.published_at)<10*60e3)}
 
@@ -457,8 +469,8 @@ function rows(){const by=aggregate(),lv=S.level,acc=Object.fromEntries(S.account
     if(parentSel&&parentSel.size&&!parentSel.has(e[parentKey]))continue;
     if(q&&!(e.name||"").toLowerCase().includes(q)&&!(acc[e.account_id]?.client||"").toLowerCase().includes(q))continue;
     const m=by[lv][e.id]||{};const r={level:lv,_e:e,id:e.id,cur:acc[e.account_id]?.currency||"EUR",client:acc[e.account_id]?.client||e.account_id,results:0};
-    for(const k of MET)r[k]=m[k]||0;r.results=m.results||0;if(m.rtypes&&m.rtypes.size>1){const top=Object.entries(m.rsp).sort((x,y)=>y[1]-x[1])[0][0];m.rtypes=new Set([top]);r.results=m.rres[top]||0;r._mixed=true}r.rtype=m.rtypes&&m.rtypes.size===1?[...m.rtypes][0]:(m.rtypes||lv==="account"?null:rtype(lv==="adset"?e.id:lv==="ad"?e.adset_id:Object.values(S.ent).find(x=>x.level==="adset"&&x.campaign_id===e.id)?.id,{}));
-    r._st=effStatus(e)==="ACTIVE"?0:1;r._budget=e.daily_budget||e.lifetime_budget;r._created=e.created_time;r._end=e.stop_time?new Date(e.stop_time):null;
+    for(const k of MET)r[k]=m[k]||0;r.results=m.rtypes&&m.rtypes.size>1?null:(m.results||0);r.rtype=m.rtypes&&m.rtypes.size===1?[...m.rtypes][0]:(m.rtypes||lv==="account"?null:rtype(lv==="adset"?e.id:lv==="ad"?e.adset_id:Object.values(S.ent).find(x=>x.level==="adset"&&x.campaign_id===e.id)?.id,{}));
+    if(!S.demo){const x=S.reach&&S.reach[lv+":"+e.id];r.reach=x?+x.reach:(r.impressions>0?null:0)}r._st=effStatus(e)==="ACTIVE"?0:1;r._budget=e.daily_budget||e.lifetime_budget;r._created=e.created_time;r._end=e.stop_time?new Date(e.stop_time):null;
     if(lv==="account"){const a=e._a;r._budget=acctBudget(e.account_id);r._st=a.error?2:e._active?0:1;r._nact=e._active;
       if(S.filter==="delivery"&&!(r.impressions>0||e._active))continue;if(S.filter==="active"&&!e._active)continue;out.push(r);continue}
     if(S.filter==="delivery"&&!(r.impressions>0||e.effective_status==="ACTIVE"&&!(r._end&&r._end<new Date())||draftOf(e.id,"status")))continue;
@@ -495,6 +507,9 @@ function render(){const R=rows(),cols=colList(),lv=S.level,sel=S.sel[lv];const a
       ${showCli?`<td class="l">${esc(r.client)}</td>`:""}
       ${cols.map(k=>`<td class="${COLS[k].l?"l":""}">${COLS[k].f(COLS[k].v(r),r)}</td>`).join("")}</tr>`}).join("");
   const T={level:lv,_e:{},results:0,cur:R[0]?.cur||"EUR"};for(const k of MET)T[k]=R.reduce((s,r)=>s+r[k],0);
+  if(!S.demo){const one=S.acct!=="all"&&(!S.q)&&(S.filter==="all"||!S.filter);
+   if(lv==="account")T.reach=R.some(r=>r.reach==null)?null:R.reduce((s,r)=>s+r.reach,0);
+   else if(one){const x=S.reach&&S.reach["account:"+S.acct];T.reach=x?+x.reach:null}else T.reach=R.length===1?R[0].reach:null}
   const rts=new Set(R.filter(r=>r.results).map(r=>r.rtype));T.rtype=rts.size===1?[...rts][0]:null;T.results=T.rtype?R.reduce((s,r)=>s+r.results,0):null;
   const curs=new Set(R.map(r=>r.cur));
   $("#tbl tfoot").innerHTML=`<tr><td class="c-chk"></td><td class="c-tog"></td><td class="c-name l">Resultados de ${R.length} ${lv==="account"?"clientes":lv==="campaign"?"campanhas":lv==="adset"?"conjuntos":"anúncios"}${curs.size>1?' <span class="muted">(moedas mistas)</span>':""}</td>${showCli?"<td></td>":""}

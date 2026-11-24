@@ -417,14 +417,14 @@ async function pageAll(tbl,cols,mod){/* conta e puxa as páginas em paralelo (6 
 async function loadAll(){
   if(S.demo){S.accounts=S.demo.accounts;S.ent=Object.fromEntries(S.demo.entities.map(e=>[e.id,e]));S.daily=S.demo.daily;S.drafts=S.demo.drafts||[];return}
   const hot=!S.fullEnt;
-  const [a,e,dr]=await Promise.all([pageAll("ads_accounts","*"),pageAll(hot?"ads_entities_hot":"ads_entities","*").catch(()=>pageAll("ads_entities","*")),
+  const [a,e,dr]=await Promise.all([pageAll("ads_accounts","*"),pageAll(hot?"ads_entities_hot":"ads_entities","*",q=>q.order("id")).catch(()=>pageAll("ads_entities","*",q=>q.order("id"))),
     pageAll("ads_drafts","*",q=>q.in("state",["draft","queued","publishing","error"])).catch(()=>[]),loadDaily()]);
   S.accounts=a;S.ent=Object.fromEntries(e.map(x=>[x.id,x]));S.drafts=dr;
-  if(hot&&!S.bgEnt){S.bgEnt=true;setTimeout(async()=>{try{const all=await pageAll("ads_entities","*");for(const x of all)S.ent[x.id]=x;S.fullEnt=true;render()}catch(_){}finally{S.bgEnt=false}},50)}}
+  if(hot&&!S.bgEnt){S.bgEnt=true;setTimeout(async()=>{try{const all=await pageAll("ads_entities","*",q=>q.order("id"));for(const x of all)S.ent[x.id]=x;S.fullEnt=true;render()}catch(_){}finally{S.bgEnt=false}},50)}}
 async function loadDaily(){if(S.demo)return;
   const[s,u]=range(S.preset);const base="account_id,day,ad_id,campaign_id,adset_id,spend,impressions,reach,clicks,link_clicks,lpv,leads,messages,purchases,purchase_value,video_views";
   const cols=S.noExt?base:base+","+EXT.join(",");
-  let out;try{out=await pageAll("ads_daily",cols,q=>{q=q.gte("day",s).lte("day",u);return S.acct!=="all"?q.eq("account_id",S.acct):q})}
+  let out;try{out=await pageAll("ads_daily",cols,q=>{q=q.gte("day",s).lte("day",u).order("day").order("ad_id");return S.acct!=="all"?q.eq("account_id",S.acct):q})}
   catch(error){if(!S.noExt&&/column|does not exist|checkouts|ig_follows|ig_visits/i.test(error.message||"")){S.noExt=true;return loadDaily()}throw error}
   S.daily=out;S.dailyKey=s+u+S.acct}
 async function loadDrafts(){if(S.demo)return;const{data}=await S.sb.from("ads_drafts").select("*").in("state",["draft","queued","publishing","error","published"]).order("created_at");

@@ -662,8 +662,10 @@ function prevFrame(h){const m=/src="([^"]+)"/.exec(h||"");const u=m?m[1].replace
 function agoTxt(t){const m=Math.round((Date.now()-new Date(t))/60000);return m<1?"agora mesmo":m<60?"há "+m+" min":m<1440?"há "+Math.floor(m/60)+" h "+(m%60)+" min":"há "+Math.floor(m/1440)+" dia(s)"}
 function showAgo(){const el=$("#sync");if(!el||S.syncing)return;
   const vis=S.accounts.filter(x=>S.acct==="all"||x.account_id===S.acct);
-  const ls=vis.map(x=>x.last_sync).filter(Boolean).sort()[0];/* a mais atrasada: é a que decide se os números estão em dia */
-  el.textContent=ls?"Atualizado "+agoTxt(ls)+(vis.length>1?" (conta mais atrasada)":""):"";
+  const viv=vis.filter(x=>!/#200|NOT grant/.test(x.error||""));/* contas sem acesso (dados pelo MCP) não contam aqui */
+  const old=[...viv].sort((x,y)=>String(x.last_sync).localeCompare(String(y.last_sync)))[0];const ls=old&&old.last_sync;/* a mais atrasada decide se os números estão em dia */
+  el.textContent=ls?"Atualizado "+agoTxt(ls)+(viv.length>1?" ("+old.client+", a mais atrasada)":""):"";
+  el.style.color=ls&&Date.now()-new Date(ls)>45*60e3?"#b26a00":"";
   if(S.preset==="custom"&&!S.since)return;
   /* só se mostra "Igual à Meta" se TODAS as contas em vista foram conferidas neste mesmo intervalo (no fuso de cada uma) há menos de 3 h */
   const chk=vis.filter(a=>!/#200|NOT grant/.test(a.error||""));if(!chk.length)return;

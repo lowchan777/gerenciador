@@ -423,10 +423,8 @@ async function loadAll(){
   S.check=await pageAll("ads_check","*").catch(()=>[]);
   if(hot&&!S.bgEnt){S.bgEnt=true;setTimeout(async()=>{try{const all=await pageAll("ads_entities","*",q=>q.order("id"));for(const x of all)S.ent[x.id]=x;S.fullEnt=true;render()}catch(_){}finally{S.bgEnt=false}},50)}}
 async function loadDaily(){if(S.demo)return;
-  const[s,u]=range(S.preset);const base="account_id,day,ad_id,campaign_id,adset_id,spend,impressions,reach,clicks,link_clicks,lpv,leads,messages,purchases,purchase_value,video_views";
-  const cols=S.noExt?base:base+","+EXT.join(",");
-  let out;try{out=await pageAll("ads_daily",cols,q=>{q=q.gte("day",s).lte("day",u).order("day").order("ad_id");return S.acct!=="all"?q.eq("account_id",S.acct):q})}
-  catch(error){if(!S.noExt&&/column|does not exist|checkouts|ig_follows|ig_visits/i.test(error.message||"")){S.noExt=true;return loadDaily()}throw error}
+  const[s,u]=range(S.preset);const acc=S.acct==="all"?null:S.acct;let out=[];
+  for(let i=0;;i+=1000){const{data,error}=await S.sb.rpc("ads_period",{s,u,acc}).range(i,i+999);if(error)throw error;out=out.concat(data||[]);if(!data||data.length<1000)break}
   S.daily=out;S.dailyKey=s+u+S.acct;if(S.accounts&&S.accounts.length)await loadReach()}
 async function loadReach(){if(S.demo)return;const[s,u]=range(S.preset);S.reach={};S.reachKey=s+u;
   const rows=await pageAll("ads_reach","level,entity_id,reach,impressions,fetched_at",q=>{q=q.eq("since",s).eq("until",u).order("entity_id");return S.acct!=="all"?q.eq("account_id",S.acct):q}).catch(()=>[]);
@@ -481,13 +479,13 @@ function rows(){const by=aggregate(),lv=S.level,acc=Object.fromEntries(S.account
   out.sort((a,b)=>{const x=key(a),y=key(b);return(x>y?1:x<y?-1:0)*S.sort.d});return out}
 
 /* ---------- render ---------- */
-function render(){const R=rows(),cols=colList(),lv=S.level,sel=S.sel[lv];const all=S.acct==="all";const showCli0=all&&lv!=="account";
+function render(){const R=(S.loading||S.loadErr)?[]:rows(),cols=colList(),lv=S.level,sel=S.sel[lv];const all=S.acct==="all";const showCli0=all&&lv!=="account";
   const ar=k=>S.sort.k===k?`<span class="ar">${S.sort.d>0?"▲":"▼"}</span>`:"";
   const lvName={account:"Cliente",campaign:"Campanha",adset:"Conjunto de anúncios",ad:"Anúncio"}[lv];
   $("#tbl thead").innerHTML=`<tr><th class="c-chk"><input type="checkbox" id="chkAll" ${R.length&&R.every(r=>sel.has(r.id))?"checked":""}></th><th class="c-tog">Ativar</th>
     <th class="c-name l" data-s="name">${lvName}${ar("name")}</th>${all&&lv!=="account"?`<th class="l" data-s="client">Cliente${ar("client")}</th>`:""}
     ${cols.map(k=>`<th class="${COLS[k].l?"l":""}" data-s="${k}" title="${esc(COLS[k].tip||"")}">${COLS[k].t}${ar(k)}</th>`).join("")}</tr>`;
-  if(!R.length){$("#tbl tbody").innerHTML=`<tr><td colspan="${cols.length+(showCli0?4:3)}" class="empty" style="text-align:center">Nada para mostrar com estes filtros. Experimente "Tudo" ou outro período.</td></tr>`;$("#tbl tfoot").innerHTML="";}
+  if(!R.length){$("#tbl tbody").innerHTML=`<tr><td colspan="${cols.length+(showCli0?4:3)}" class="empty" style="text-align:center">${S.loading?'<b>A carregar os dados do período…</b>':S.loadErr?'<b style="color:#c0392b">Não consegui carregar os dados: '+esc(S.loadErr)+'</b><br><button class="btn" id="retryLoad" style="margin-top:8px">Tentar de novo</button>':'Nada para mostrar com estes filtros. Experimente "Tudo" ou outro período.'}</td></tr>`;$("#tbl tfoot").innerHTML="";}
   else{
   const showCli=all&&lv!=="account";
   $("#tbl tbody").innerHTML=R.map(r=>{const e=r._e;
@@ -591,12 +589,12 @@ function prevFrame(h){const m=/src="([^"]+)"/.exec(h||"");const u=m?m[1].replace
   return /^https:\/\/(business|www)\.facebook\.com\//.test(u)?`<iframe src="${esc(u)}" scrolling="yes"></iframe>`:`<div class="wait">${esc((h||"").replace(/<[^>]+>/g,""))||"Sem prévia"}</div>`}
 function agoTxt(t){const m=Math.round((Date.now()-new Date(t))/60000);return m<1?"agora mesmo":m<60?"há "+m+" min":m<1440?"há "+Math.floor(m/60)+" h "+(m%60)+" min":"há "+Math.floor(m/1440)+" dia(s)"}
 function showAgo(){const el=$("#sync");if(!el||S.syncing)return;const a=S.accounts.find(x=>x.account_id===S.acct);const ls=a?a.last_sync:S.accounts.map(x=>x.last_sync).filter(Boolean).sort().pop();el.textContent=ls?"Atualizado "+agoTxt(ls):"";
-  const ck=(S.check||[]).filter(c=>S.acct==="all"||c.account_id===S.acct);if(!ck.length)return;
+  const[ps,pu]=range(S.preset);const ck=(S.check||[]).filter(c=>(S.acct==="all"||c.account_id===S.acct)&&c.since===ps&&c.until===pu);if(!ck.length)return;
   const bad=ck.filter(c=>!c.ok);const nm=id=>(S.accounts.find(a=>a.account_id===id)||{}).client||id;
   const sp=document.createElement("span");sp.style.marginLeft="8px";
   if(bad.length){sp.style.color="#c0392b";sp.textContent="⚠ "+(bad.length===1?nm(bad[0].account_id)+" diferente da Meta":bad.length+" contas diferentes da Meta");
     sp.title=bad.map(c=>nm(c.account_id)+": "+Object.entries((c.detail||{}).dif||{}).map(([k,v])=>k+" "+v.nosso+" vs Meta "+v.meta).join(", ")).join("\n")}
-  else{sp.style.color="#1e8e3e";sp.textContent="✓ Igual à Meta";sp.title="Últimos 7 dias conferidos com a Meta "+agoTxt(ck.map(c=>c.checked_at).sort()[0])}
+  else{sp.style.color="#1e8e3e";sp.textContent="✓ Igual à Meta";sp.title="Este período foi conferido com a Meta "+agoTxt(ck.map(c=>c.checked_at).sort()[0])}
   el.appendChild(sp)}
 setInterval(showAgo,30000);
 async function syncNow(){if(S.demo||S.syncing){toast(S.syncing?"Já está a sincronizar":"Modo demo");return}
@@ -676,7 +674,7 @@ document.addEventListener("click",async ev=>{const t=ev.target;
   if(t.id==="mDiscAll"){const pend=S.drafts.filter(d=>["draft","error"].includes(d.state));if(!S.demo)await S.sb.from("ads_drafts").delete().in("id",pend.map(d=>d.id));S.drafts=S.drafts.filter(d=>!pend.includes(d));review();render();return}
   if(t.id==="mPub"){publish();return}if(t.id==="mCancel"){review();return}if(t.id==="mGo"){await publishGo();return}
   if(t.id==="sortDir"){S.sort={k:S.sort.k,d:-S.sort.d};LS.set("sort",S.sort);render();return}
-  if(t.closest&&t.closest("#syncNow")){syncNow();return}
+  if(t.closest&&t.closest("#syncNow")){syncNow();return}if(t.id==="retryLoad"){S.accounts.length?refreshDaily():start();return}
 });
 document.addEventListener("change",async ev=>{const t=ev.target;
   if(t.id==="sortSel"){const k=t.value;S.sort={k,d:k==="name"||k==="client"?1:-1};LS.set("sort",S.sort);render();return}
@@ -685,12 +683,13 @@ document.addEventListener("change",async ev=>{const t=ev.target;
   if(t.dataset.seen){const d=S.drafts.find(x=>String(x.id)===t.dataset.seen);d.preview_seen=t.checked;if(!S.demo){const{error}=await S.sb.from("ads_drafts").update({preview_seen:t.checked}).eq("id",d.id);if(error)toast(error.message)}review();return}
 });
 let qT;$("#q").addEventListener("input",e=>{clearTimeout(qT);qT=setTimeout(()=>{S.q=e.target.value.trim();render()},150)});
-async function refreshDaily(){if(!S.demo){$("#sync").textContent="A carregar…";await loadDaily()}render()}
+async function refreshDaily(){if(!S.demo){S.loading=true;S.loadErr=null;render();
+    try{await loadDaily()}catch(e){S.loadErr=e.message||String(e)}finally{S.loading=false}}render()}
 
 /* ---------- arranque ---------- */
 async function start(){$("#login").classList.add("hide");$("#app").classList.remove("hide");
-  try{await loadAll()}catch(e){toast("Erro a carregar: "+e.message)}
-  if(!S.demo&&!S.accounts.length){$("#tw").innerHTML=`<div class="empty">Esta conta não é administradora ou ainda não há dados.</div>`;return}
+  S.loading=true;try{await loadAll()}catch(e){S.loadErr=e.message||String(e)}finally{S.loading=false}
+  if(!S.demo&&!S.loadErr&&!S.accounts.length){$("#tw").innerHTML=`<div class="empty">Esta conta não é administradora ou ainda não há dados.</div>`;return}
   if(S.acct!=="all"&&!S.accounts.find(a=>a.account_id===S.acct))S.acct="all";render();poll()}
 (async()=>{
   if(S.demo){start();return}

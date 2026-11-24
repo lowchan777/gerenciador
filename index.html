@@ -327,7 +327,7 @@ function rtype(adsetId,row){let g=GOAL[S.ent[adsetId]?.optimization_goal]||null;
 const COLS={
   status:{t:"Veiculação",g:"Entrega",l:1,v:r=>r._st,f:(v,r)=>stCell(r)},
   budget:{t:"Orçamento",g:"Entrega",v:r=>r._budget??-1,f:(v,r)=>budgetCell(r)},
-  results:{t:"Resultados",g:"Desempenho",v:r=>r.results,f:(v,r)=>`${num(v)}<span class="sub2">${esc(r.rtype?RLBL[r.rtype]:"Vários")}</span>`},
+  results:{t:"Resultados",g:"Desempenho",v:r=>r.results,f:(v,r)=>`${num(v)}<span class="sub2"${r._mixed?' title="Várias otimizações: mostra a que tem mais investimento"':""}>${esc(r.rtype?RLBL[r.rtype]+(r._mixed?" · principal":""):"Vários")}</span>`},
   cpr:{t:"Custo por resultado",g:"Desempenho",v:r=>r.results?r.spend/r.results:null,f:(v,r)=>`${money(v,r.cur)}<span class="sub2">${r.rtype?"Por "+RLBL[r.rtype].toLowerCase().replace(/s$/,""):""}</span>`},
   spend:{t:"Valor usado",g:"Desempenho",v:r=>r.spend,f:(v,r)=>money(v,r.cur)},
   impressions:{t:"Impressões",g:"Entrega",v:r=>r.impressions,f:num},
@@ -408,16 +408,24 @@ function budgetCell(r){const e=r._e;
   return`<span class="edit" data-bud="${e.id}" data-f="${f}">${money(v,r.cur)}${d?'<span class="dpill">RASCUNHO</span>':""}</span><span class="sub2">${f==="daily_budget"?"Diário":"Total"}</span>`}
 
 /* ---------- dados ---------- */
+async function pageAll(tbl,cols,mod){/* conta e puxa as páginas em paralelo (6 de cada vez) */
+  let q0=S.sb.from(tbl).select(cols,{count:"exact"}).range(0,999);if(mod)q0=mod(q0);
+  const{data:d0,count,error:e0}=await q0;if(e0)throw e0;let out=d0||[];const n=Math.ceil((count||0)/1000);
+  for(let b=1;b<n;b+=6){const ps=[];for(let i=b;i<Math.min(n,b+6);i++){let q=S.sb.from(tbl).select(cols).range(i*1000,i*1000+999);if(mod)q=mod(q);ps.push(q)}
+    for(const r of await Promise.all(ps)){if(r.error)throw r.error;out=out.concat(r.data)}}
+  return out}
 async function loadAll(){
   if(S.demo){S.accounts=S.demo.accounts;S.ent=Object.fromEntries(S.demo.entities.map(e=>[e.id,e]));S.daily=S.demo.daily;S.drafts=S.demo.drafts||[];return}
-  const page=async(tbl,cols,mod)=>{let out=[],i=0;for(;;){let q=S.sb.from(tbl).select(cols).range(i,i+999);if(mod)q=mod(q);const{data,error}=await q;if(error)throw error;out=out.concat(data);if(data.length<1000)break;i+=1000}return out};
-  const [a,e,dr]=await Promise.all([page("ads_accounts","*"),page("ads_entities","*"),page("ads_drafts","*",q=>q.in("state",["draft","queued","publishing","error"])).catch(()=>[])]);
-  S.accounts=a;S.ent=Object.fromEntries(e.map(x=>[x.id,x]));S.drafts=dr;await loadDaily()}
+  const hot=!S.fullEnt;
+  const [a,e,dr]=await Promise.all([pageAll("ads_accounts","*"),pageAll(hot?"ads_entities_hot":"ads_entities","*").catch(()=>pageAll("ads_entities","*")),
+    pageAll("ads_drafts","*",q=>q.in("state",["draft","queued","publishing","error"])).catch(()=>[]),loadDaily()]);
+  S.accounts=a;S.ent=Object.fromEntries(e.map(x=>[x.id,x]));S.drafts=dr;
+  if(hot&&!S.bgEnt){S.bgEnt=true;setTimeout(async()=>{try{const all=await pageAll("ads_entities","*");for(const x of all)S.ent[x.id]=x;S.fullEnt=true;render()}catch(_){}finally{S.bgEnt=false}},50)}}
 async function loadDaily(){if(S.demo)return;
   const[s,u]=range(S.preset);const base="account_id,day,ad_id,campaign_id,adset_id,spend,impressions,reach,clicks,link_clicks,lpv,leads,messages,purchases,purchase_value,video_views";
   const cols=S.noExt?base:base+","+EXT.join(",");
-  let out=[],i=0;for(;;){let q=S.sb.from("ads_daily").select(cols).gte("day",s).lte("day",u).range(i,i+999);if(S.acct!=="all")q=q.eq("account_id",S.acct);
-    const{data,error}=await q;if(error){if(!S.noExt&&/column|does not exist|checkouts|ig_follows|ig_visits/i.test(error.message||"")){S.noExt=true;return loadDaily()}throw error}out=out.concat(data);if(data.length<1000)break;i+=1000}
+  let out;try{out=await pageAll("ads_daily",cols,q=>{q=q.gte("day",s).lte("day",u);return S.acct!=="all"?q.eq("account_id",S.acct):q})}
+  catch(error){if(!S.noExt&&/column|does not exist|checkouts|ig_follows|ig_visits/i.test(error.message||"")){S.noExt=true;return loadDaily()}throw error}
   S.daily=out;S.dailyKey=s+u+S.acct}
 async function loadDrafts(){if(S.demo)return;const{data}=await S.sb.from("ads_drafts").select("*").in("state",["draft","queued","publishing","error","published"]).order("created_at");
   const now=Date.now();S.drafts=(data||[]).filter(d=>d.state!=="published"||now-new Date(d.published_at)<10*60e3)}
@@ -429,7 +437,7 @@ function aggregate(){const[s,u]=range(S.preset);const by={account:{},campaign:{}
   for(const r of S.daily){if(r.day<s||r.day>u)continue;if(S.acct!=="all"&&r.account_id!==S.acct)continue;
     const rt=rtype(r.adset_id,r);
     for(const[lv,id]of[["account",r.account_id],["campaign",r.campaign_id],["adset",r.adset_id],["ad",r.ad_id]]){const o=by[lv][id]||(by[lv][id]={results:0,rtypes:new Set()});
-      for(const m of MET)o[m]=(o[m]||0)+(+r[m]||0);o.results+=(rt==="impressions"?+r.impressions:+r[rt]||0);o.rtypes.add(rt)}}
+      for(const m of MET)o[m]=(o[m]||0)+(+r[m]||0);const rv=(rt==="impressions"?+r.impressions:+r[rt]||0);o.results+=rv;o.rtypes.add(rt);(o.rsp||(o.rsp={}))[rt]=(o.rsp[rt]||0)+(+r.spend||0);(o.rres||(o.rres={}))[rt]=(o.rres[rt]||0)+rv}}
   return by}
 function acctEnt(a){const act=Object.values(S.ent).filter(x=>x.level==="campaign"&&x.account_id===a.account_id&&effStatus(x)==="ACTIVE").length;
   return{id:a.account_id,level:"account",account_id:a.account_id,name:a.client,_a:a,_active:act,status:act?"ACTIVE":"PAUSED",effective_status:act?"ACTIVE":"PAUSED"}}
@@ -449,7 +457,7 @@ function rows(){const by=aggregate(),lv=S.level,acc=Object.fromEntries(S.account
     if(parentSel&&parentSel.size&&!parentSel.has(e[parentKey]))continue;
     if(q&&!(e.name||"").toLowerCase().includes(q)&&!(acc[e.account_id]?.client||"").toLowerCase().includes(q))continue;
     const m=by[lv][e.id]||{};const r={level:lv,_e:e,id:e.id,cur:acc[e.account_id]?.currency||"EUR",client:acc[e.account_id]?.client||e.account_id,results:0};
-    for(const k of MET)r[k]=m[k]||0;r.results=m.rtypes&&m.rtypes.size>1?null:(m.results||0);r.rtype=m.rtypes&&m.rtypes.size===1?[...m.rtypes][0]:(m.rtypes||lv==="account"?null:rtype(lv==="adset"?e.id:lv==="ad"?e.adset_id:Object.values(S.ent).find(x=>x.level==="adset"&&x.campaign_id===e.id)?.id,{}));
+    for(const k of MET)r[k]=m[k]||0;r.results=m.results||0;if(m.rtypes&&m.rtypes.size>1){const top=Object.entries(m.rsp).sort((x,y)=>y[1]-x[1])[0][0];m.rtypes=new Set([top]);r.results=m.rres[top]||0;r._mixed=true}r.rtype=m.rtypes&&m.rtypes.size===1?[...m.rtypes][0]:(m.rtypes||lv==="account"?null:rtype(lv==="adset"?e.id:lv==="ad"?e.adset_id:Object.values(S.ent).find(x=>x.level==="adset"&&x.campaign_id===e.id)?.id,{}));
     r._st=effStatus(e)==="ACTIVE"?0:1;r._budget=e.daily_budget||e.lifetime_budget;r._created=e.created_time;r._end=e.stop_time?new Date(e.stop_time):null;
     if(lv==="account"){const a=e._a;r._budget=acctBudget(e.account_id);r._st=a.error?2:e._active?0:1;r._nact=e._active;
       if(S.filter==="delivery"&&!(r.impressions>0||e._active))continue;if(S.filter==="active"&&!e._active)continue;out.push(r);continue}

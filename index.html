@@ -391,9 +391,12 @@ const STL={ACTIVE:["Ativo","g"],PAUSED:["Desativado",""],CAMPAIGN_PAUSED:["Campa
   PREAPPROVED:["Pré-aprovado","a"],PENDING_BILLING_INFO:["Pendente de pagamento","r"],ARCHIVED:["Arquivado",""],DELETED:["Excluído",""]};
 function draftOf(id,field){return S.drafts.find(d=>d.entity_id===id&&d.field===field&&["draft","queued","publishing","error"].includes(d.state))}
 function effStatus(e){const d=draftOf(e.id,"status");return d?d.new_value:e.status}
+const ACST={2:"Conta desativada",3:"Pagamento em atraso",7:"Em análise de risco",8:"Pagamento pendente",9:"Período de carência (pagamento falhou)",100:"A fechar",101:"Conta fechada"};
+function accErr(a){const m=a.error||"";if(/80004|80000|too many calls|#17\b|"code":17/.test(m))return["a","Limite de pedidos da Meta (volta sozinho)"];
+  if(/#200|NOT grant/.test(m))return["r","Sem acesso: a dona da conta não autorizou a app"];return["r","Erro ao ler da Meta"]}
 function stCell(r){const e=r._e;
-  if(r.level==="account"){const a=e._a||{};if(a.error)return`<span class="st"><span class="dot r"></span>Sem acesso pelo token</span>`;
-    if(a.account_status&&a.account_status!==1)return`<span class="st"><span class="dot r"></span>Conta com restrição</span>`;
+  if(r.level==="account"){const a=e._a||{};if(a.error){const[c,t]=accErr(a);return`<span class="st" title="${esc(a.error)}"><span class="dot ${c}"></span>${t}</span>`}
+    if(a.account_status&&a.account_status!==1)return`<span class="st"><span class="dot r"></span>${ACST[a.account_status]||"Conta com restrição"}</span>`;
     return`<span class="st"><span class="dot ${r._nact?"g":""}"></span>${r._nact?r._nact+" campanha"+(r._nact>1?"s":"")+" ativa"+(r._nact>1?"s":""):"Sem campanhas ativas"}</span>`}const d=draftOf(e.id,"status");
   if(d)return`<span class="st"><span class="dot a"></span>${d.new_value==="ACTIVE"?"Ativar":"Desativar"} (rascunho)</span>`;
   let [t,c]=STL[e.effective_status]||[e.effective_status||"—",""];
@@ -560,7 +563,7 @@ MQ.addEventListener("change",()=>{if(S.accounts.length)render()});
 
 /* ---------- menus ---------- */
 function acctMenu(){const m=$("#acctMenu");const accs=[...S.accounts].sort((a,b)=>a.client.localeCompare(b.client));
-  m.innerHTML=`<div class="it ${S.acct==="all"?"on":""}" data-a="all"><b>Todos os clientes</b></div><hr>`+accs.map(a=>`<div class="it ${S.acct===a.account_id?"on":""}" data-a="${a.account_id}"><div><div>${esc(a.client)}</div><div class="${a.error?"err-acc":"muted"}" style="font-size:11px">${a.error?"Sem acesso pelo token":"act_"+a.account_id}${a.account_status&&a.account_status!==1?" · conta com restrição":""}</div></div></div>`).join("")}
+  m.innerHTML=`<div class="it ${S.acct==="all"?"on":""}" data-a="all"><b>Todos os clientes</b></div><hr>`+accs.map(a=>`<div class="it ${S.acct===a.account_id?"on":""}" data-a="${a.account_id}"><div><div>${esc(a.client)}</div><div class="${a.error?"err-acc":"muted"}" style="font-size:11px">${a.error?esc(accErr(a)[1]):"act_"+a.account_id}${a.account_status&&a.account_status!==1?" · conta com restrição":""}</div></div></div>`).join("")}
 function colMenu(){const m=$("#colMenu");const cl=colList();
   m.innerHTML=`<div class="sub">Predefinições</div>`+Object.entries(PRESETCOLS).map(([k,[n]])=>`<div class="it ${S.cols===k?"on":""}" data-c="${k}">${n}</div>`).join("")+
   `<hr><div class="sub">Personalizar colunas</div><div style="padding:4px 10px 6px"><input id="colQ" class="inl" style="width:100%;text-align:left" placeholder="Pesquisar coluna (ex.: instagram)"></div><div id="colList">${colItems(cl,"")}</div>`;

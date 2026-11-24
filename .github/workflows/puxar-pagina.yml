@@ -1,0 +1,29 @@
+name: Puxar página do servidor
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: URL da página no servidor
+        required: true
+      md5:
+        description: md5 esperado
+        required: true
+permissions:
+  contents: write
+jobs:
+  puxar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Baixar e conferir
+        run: |
+          curl -fsSL "${{ inputs.url }}" -o index.html.new
+          echo "${{ inputs.md5 }}  index.html.new" | md5sum -c -
+          mv index.html.new index.html
+      - name: Gravar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "Atualiza a página a partir do servidor"
+          git push

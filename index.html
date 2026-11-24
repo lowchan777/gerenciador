@@ -420,6 +420,7 @@ async function loadAll(){
   const [a,e,dr]=await Promise.all([pageAll("ads_accounts","*"),pageAll(hot?"ads_entities_hot":"ads_entities","*",q=>q.order("id")).catch(()=>pageAll("ads_entities","*",q=>q.order("id"))),
     pageAll("ads_drafts","*",q=>q.in("state",["draft","queued","publishing","error"])).catch(()=>[]),loadDaily()]);
   S.accounts=a;S.ent=Object.fromEntries(e.map(x=>[x.id,x]));S.drafts=dr;await loadReach();
+  S.check=await pageAll("ads_check","*").catch(()=>[]);
   if(hot&&!S.bgEnt){S.bgEnt=true;setTimeout(async()=>{try{const all=await pageAll("ads_entities","*",q=>q.order("id"));for(const x of all)S.ent[x.id]=x;S.fullEnt=true;render()}catch(_){}finally{S.bgEnt=false}},50)}}
 async function loadDaily(){if(S.demo)return;
   const[s,u]=range(S.preset);const base="account_id,day,ad_id,campaign_id,adset_id,spend,impressions,reach,clicks,link_clicks,lpv,leads,messages,purchases,purchase_value,video_views";
@@ -589,7 +590,14 @@ async function setDraft(e,field,oldV,newV){
 function prevFrame(h){const m=/src="([^"]+)"/.exec(h||"");const u=m?m[1].replace(/&amp;/g,"&"):"";
   return /^https:\/\/(business|www)\.facebook\.com\//.test(u)?`<iframe src="${esc(u)}" scrolling="yes"></iframe>`:`<div class="wait">${esc((h||"").replace(/<[^>]+>/g,""))||"Sem prévia"}</div>`}
 function agoTxt(t){const m=Math.round((Date.now()-new Date(t))/60000);return m<1?"agora mesmo":m<60?"há "+m+" min":m<1440?"há "+Math.floor(m/60)+" h "+(m%60)+" min":"há "+Math.floor(m/1440)+" dia(s)"}
-function showAgo(){const el=$("#sync");if(!el||S.syncing)return;const a=S.accounts.find(x=>x.account_id===S.acct);const ls=a?a.last_sync:S.accounts.map(x=>x.last_sync).filter(Boolean).sort().pop();el.textContent=ls?"Atualizado "+agoTxt(ls):""}
+function showAgo(){const el=$("#sync");if(!el||S.syncing)return;const a=S.accounts.find(x=>x.account_id===S.acct);const ls=a?a.last_sync:S.accounts.map(x=>x.last_sync).filter(Boolean).sort().pop();el.textContent=ls?"Atualizado "+agoTxt(ls):"";
+  const ck=(S.check||[]).filter(c=>S.acct==="all"||c.account_id===S.acct);if(!ck.length)return;
+  const bad=ck.filter(c=>!c.ok);const nm=id=>(S.accounts.find(a=>a.account_id===id)||{}).client||id;
+  const sp=document.createElement("span");sp.style.marginLeft="8px";
+  if(bad.length){sp.style.color="#c0392b";sp.textContent="⚠ "+(bad.length===1?nm(bad[0].account_id)+" diferente da Meta":bad.length+" contas diferentes da Meta");
+    sp.title=bad.map(c=>nm(c.account_id)+": "+Object.entries((c.detail||{}).dif||{}).map(([k,v])=>k+" "+v.nosso+" vs Meta "+v.meta).join(", ")).join("\n")}
+  else{sp.style.color="#1e8e3e";sp.textContent="✓ Igual à Meta";sp.title="Últimos 7 dias conferidos com a Meta "+agoTxt(ck.map(c=>c.checked_at).sort()[0])}
+  el.appendChild(sp)}
 setInterval(showAgo,30000);
 async function syncNow(){if(S.demo||S.syncing){toast(S.syncing?"Já está a sincronizar":"Modo demo");return}
   const b=$("#syncNow");S.syncing=true;b.disabled=true;$("#sync").textContent="A pedir à Meta…";

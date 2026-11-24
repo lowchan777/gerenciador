@@ -346,6 +346,11 @@ const indCpr=i=>IND[i]?.[2]||"resultado";
 function rtype(adsetId,row){if(row&&row.res_ind)return row.res_ind;const a=S.ent[adsetId];const g=a?.optimization_goal;
   if(g==="OFFSITE_CONVERSIONS"||g==="VALUE"){const o=S.ent[a.campaign_id]?.objective||"";return /SALES|CONVERSIONS|PRODUCT/.test(o)?"actions:omni_purchase":"actions:lead"}
   return GOAL[g]||"?"}/* "?" = objetivo sem equivalente conhecido: mostra "—", nunca um número inventado */
+/* Campanha com conjuntos de objetivos de otimização diferentes = "Conversões múltiplas" no Gestor (mesmo que só um tenha tido entrega) */
+function mixedCamps(){if(S._mcK===S.ent)return S._mc;const g={};for(const x of Object.values(S.ent))if(x.level==="adset"&&x.effective_status!=="DELETED"&&x.optimization_goal)(g[x.campaign_id]=g[x.campaign_id]||new Set()).add(x.optimization_goal);
+  S._mc=new Set(Object.entries(g).filter(([c,v])=>v.size>1).map(([c])=>c));S._mcK=S.ent;return S._mc}
+/* conta com alguma campanha mista e com entrega no período = mista */
+function acctMixed(by,acc){const mc=mixedCamps();for(const[c,m]of Object.entries(by.campaign))if(mc.has(c)&&(m.impressions>0||m.spend>0)&&(S.ent[c]||{}).account_id===acc)return true;return false}
 /* valor do resultado de uma linha (um anúncio no período) */
 function rvalue(rt,row){if(row.res_ind===rt&&row.res!=null&&+row.res_dias===+row.dias)return +row.res;const c=IND[rt]?.[0];
   if(!c)return null;if(c==="reach")return 0;/* alcance: vem do período inteiro, ver rows() */return +row[c]||0}
@@ -509,7 +514,8 @@ function rows(){const by=aggregate(),lv=S.level,adsetOf={};if(lv==="campaign")fo
     if(q&&!(e.name||"").toLowerCase().includes(q)&&!(acc[e.account_id]?.client||"").toLowerCase().includes(q))continue;
     const m=by[lv][e.id]||{};const r={level:lv,_e:e,id:e.id,cur:acc[e.account_id]?.currency||"EUR",client:acc[e.account_id]?.client||e.account_id,results:0};
     for(const k of MET)r[k]=m[k]||0;
-    if(m.rtypes){r.rtype=m.rtypes.size===1?[...m.rtypes][0]:null;r.results=m.rtypes.size===1&&r.rtype&&!m.rnull?m.results:null}
+    if(m.rtypes){r.rtype=m.rtypes.size===1?[...m.rtypes][0]:null;r.results=m.rtypes.size===1&&r.rtype&&!m.rnull?m.results:null;
+      if((lv==="campaign"&&mixedCamps().has(e.id))||(lv==="account"&&acctMixed(by,e.id))){r.rtype=null;r.results=null}}
     else{r.rtype=lv==="account"?undefined:rtype(lv==="adset"?e.id:lv==="ad"?e.adset_id:adsetOf[e.id],{})||undefined;r.results=0}
     if(!S.demo){const x=S.reach&&S.reach[lv+":"+e.id];const sem=/#200|NOT grant/.test(acc[e.account_id]?.error||"");
       r.reach=x?+x.reach:(r.impressions>0?(sem?undefined:null):0)}/* conta sem acesso da app: alcance não disponível ("—"), não fica "a pedir" para sempre */
@@ -545,7 +551,8 @@ function totals(R,lv){const T={level:lv,_e:{},results:0,cur:R[0]?.cur||"EUR"};co
     const by=aggregate();const keyLv={all:"account",account:"account",campaign:"campaign",adset:"adset"}[sc.kind];
     const ids=sc.kind==="all"?(S.acct==="all"?S.accounts.map(a=>a.account_id):[S.acct]):[sc.id];
     src=ids.map(id=>{const m=by[keyLv][id]||{};const o={};for(const k of MET)o[k]=m[k]||0;
-      o.rtype=m.rtypes?(m.rtypes.size===1?[...m.rtypes][0]:null):undefined;o.results=m.rtypes&&m.rtypes.size===1&&!m.rnull?m.results:(m.rtypes?null:0);
+      o.rtype=m.rtypes?(m.rtypes.size===1?[...m.rtypes][0]:null):undefined;
+      if(o.rtype&&((keyLv==="account"&&acctMixed(by,id))||(keyLv==="campaign"&&mixedCamps().has(id))))o.rtype=null;o.results=m.rtypes&&m.rtypes.size===1&&!m.rnull?m.results:(m.rtypes?null:0);
       const x=S.reach&&S.reach[keyLv+":"+id];const ac=S.accounts.find(a=>a.account_id===(keyLv==="account"?id:(S.ent[id]||{}).account_id))||{};
       o.reach=x?+x.reach:(o.impressions>0?(/#200|NOT grant/.test(ac.error||"")?undefined:null):0);if(o.rtype==="reach")o.results=o.reach;return o});
     T._scope=true}

@@ -303,7 +303,8 @@ function mainTz(){if(S.acct!=="all")return accTz(S.acct);const c={};for(const a 
 const rangeAcc=id=>range(S.preset,accTz(id));
 /* grupos de contas com o mesmo intervalo de datas (fusos diferentes podem dar dias diferentes) */
 function rangeGroups(){const accs=S.acct==="all"?S.accounts.map(a=>a.account_id):[S.acct];const g={};
-  for(const a of accs){const[s,u]=rangeAcc(a);(g[s+"|"+u]=g[s+"|"+u]||{s,u,accs:[]}).accs.push(a)}return Object.values(g).sort((x,y)=>y.accs.length-x.accs.length)}
+  for(const a of accs){const[s,u]=rangeAcc(a);(g[s+"|"+u]=g[s+"|"+u]||{s,u,accs:[]}).accs.push(a)}
+  const out=Object.values(g).sort((x,y)=>y.accs.length-x.accs.length);if(!out.length){const[s,u]=range(S.preset);out.push({s,u,accs:[]})}return out}
 const iso=d=>d.toISOString().slice(0,10);
 const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
 const PRESETS=[["today","Hoje"],["yesterday","Ontem"],["last_7d","Últimos 7 dias"],["last_14d","Últimos 14 dias"],["last_30d","Últimos 30 dias"],["this_month","Este mês"],["last_month","Mês passado"],["max","Máximo"]];
@@ -446,9 +447,9 @@ async function pageAll(tbl,cols,mod){/* conta e puxa as páginas em paralelo (6 
 async function loadAll(){
   if(S.demo){S.accounts=S.demo.accounts;S.ent=Object.fromEntries(S.demo.entities.map(e=>[e.id,e]));S.daily=S.demo.daily;S.drafts=S.demo.drafts||[];return}
   const hot=!S.fullEnt;
-  const [a,e,dr]=await Promise.all([pageAll("ads_accounts","*"),pageAll(hot?"ads_entities_hot":"ads_entities","*",q=>q.order("id")).catch(()=>pageAll("ads_entities","*",q=>q.order("id"))),
-    pageAll("ads_drafts","*",q=>q.in("state",["draft","queued","publishing","error"])).catch(()=>[]),loadDaily()]);
-  S.accounts=a;S.ent=Object.fromEntries(e.map(x=>[x.id,x]));S.drafts=dr;await loadReach();
+  S.accounts=await pageAll("ads_accounts","*");/* primeiro as contas: o período depende do fuso de cada uma */
+  const [e,dr]=await Promise.all([pageAll(hot?"ads_entities_hot":"ads_entities","*",q=>q.order("id")).catch(()=>pageAll("ads_entities","*",q=>q.order("id"))),
+    pageAll("ads_drafts","*",q=>q.in("state",["draft","queued","publishing","error"])).catch(()=>[]),loadDaily()]);S.ent=Object.fromEntries(e.map(x=>[x.id,x]));S.drafts=dr;await loadReach();
   S.check=await pageAll("ads_check","*").catch(()=>[]);
   if(hot&&!S.bgEnt){S.bgEnt=true;setTimeout(async()=>{try{const all=await pageAll("ads_entities","*",q=>q.order("id"));for(const x of all)S.ent[x.id]=x;S.fullEnt=true;render()}catch(_){}finally{S.bgEnt=false}},50)}}
 async function loadDaily(){if(S.demo)return;
@@ -457,7 +458,7 @@ async function loadDaily(){if(S.demo)return;
   for(const[gi,g]of G.entries()){const accs=gi===0&&S.acct==="all"?[null]:g.accs;
     for(const acc of accs){const keep=new Set(g.accs);
       for(let i=0;;i+=1000){const{data,error}=await S.sb.rpc("ads_period",{s:g.s,u:g.u,acc}).range(i,i+999);if(error)throw error;
-        out=out.concat((data||[]).filter(r=>keep.has(r.account_id)));if(!data||data.length<1000)break}}}
+        out=out.concat((data||[]).filter(r=>!keep.size||keep.has(r.account_id)));if(!data||data.length<1000)break}}}
   S.daily=out;S.dailyKey=JSON.stringify(G.map(g=>g.s+g.u))+S.acct;if(S.accounts&&S.accounts.length)await loadReach()}
 async function loadReach(){if(S.demo)return;const G=rangeGroups();const key=JSON.stringify(G.map(g=>g.s+g.u))+S.acct;const R={};
   for(const[gi,g]of G.entries()){const one=g.accs.length===1;

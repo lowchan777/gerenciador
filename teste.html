@@ -497,7 +497,7 @@ function acctBudget(acc){let t=0;const E=Object.values(S.ent);
     if(c.daily_budget){t+=+c.daily_budget;continue}
     for(const a of E)if(a.level==="adset"&&a.campaign_id===c.id&&effStatus(a)==="ACTIVE"&&a.daily_budget)t+=+a.daily_budget}
   return t}
-function rows(){const by=aggregate(),lv=S.level,acc=Object.fromEntries(S.accounts.map(a=>[a.account_id,a]));const q=S.q.toLowerCase();
+function rows(){const by=aggregate(),lv=S.level,adsetOf={};if(lv==="campaign")for(const x of Object.values(S.ent))if(x.level==="adset"&&!adsetOf[x.campaign_id])adsetOf[x.campaign_id]=x.id;const _u=0,acc=Object.fromEntries(S.accounts.map(a=>[a.account_id,a]));const q=S.q.toLowerCase();
   const parentSel=lv==="adset"?S.sel.campaign:lv==="ad"?(S.sel.adset.size?S.sel.adset:S.sel.campaign):null;
   const parentKey=lv==="adset"?"campaign_id":lv==="ad"?(S.sel.adset.size?"adset_id":"campaign_id"):null;
   const out=[];
@@ -510,7 +510,7 @@ function rows(){const by=aggregate(),lv=S.level,acc=Object.fromEntries(S.account
     const m=by[lv][e.id]||{};const r={level:lv,_e:e,id:e.id,cur:acc[e.account_id]?.currency||"EUR",client:acc[e.account_id]?.client||e.account_id,results:0};
     for(const k of MET)r[k]=m[k]||0;
     if(m.rtypes){r.rtype=m.rtypes.size===1?[...m.rtypes][0]:null;r.results=m.rtypes.size===1&&r.rtype&&!m.rnull?m.results:null}
-    else{r.rtype=lv==="account"?undefined:rtype(lv==="adset"?e.id:lv==="ad"?e.adset_id:Object.values(S.ent).find(x=>x.level==="adset"&&x.campaign_id===e.id)?.id,{})||undefined;r.results=0}
+    else{r.rtype=lv==="account"?undefined:rtype(lv==="adset"?e.id:lv==="ad"?e.adset_id:adsetOf[e.id],{})||undefined;r.results=0}
     if(!S.demo){const x=S.reach&&S.reach[lv+":"+e.id];const sem=/#200|NOT grant/.test(acc[e.account_id]?.error||"");
       r.reach=x?+x.reach:(r.impressions>0?(sem?undefined:null):0)}/* conta sem acesso da app: alcance não disponível ("—"), não fica "a pedir" para sempre */
     if(r.rtype==="reach"&&m.rtypes)r.results=r.reach;/* resultado = alcance: tem de ser o alcance do período, não a soma dos dias */r._st=effStatus(e)==="ACTIVE"?0:1;r._budget=e.daily_budget||e.lifetime_budget;r._created=e.created_time;r._end=e.stop_time?new Date(e.stop_time):null;

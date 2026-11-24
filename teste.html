@@ -511,7 +511,8 @@ function rows(){const by=aggregate(),lv=S.level,acc=Object.fromEntries(S.account
     for(const k of MET)r[k]=m[k]||0;
     if(m.rtypes){r.rtype=m.rtypes.size===1?[...m.rtypes][0]:null;r.results=m.rtypes.size===1&&r.rtype&&!m.rnull?m.results:null}
     else{r.rtype=lv==="account"?undefined:rtype(lv==="adset"?e.id:lv==="ad"?e.adset_id:Object.values(S.ent).find(x=>x.level==="adset"&&x.campaign_id===e.id)?.id,{})||undefined;r.results=0}
-    if(!S.demo){const x=S.reach&&S.reach[lv+":"+e.id];r.reach=x?+x.reach:(r.impressions>0?null:0)}
+    if(!S.demo){const x=S.reach&&S.reach[lv+":"+e.id];const sem=/#200|NOT grant/.test(acc[e.account_id]?.error||"");
+      r.reach=x?+x.reach:(r.impressions>0?(sem?undefined:null):0)}/* conta sem acesso da app: alcance não disponível ("—"), não fica "a pedir" para sempre */
     if(r.rtype==="reach"&&m.rtypes)r.results=r.reach;/* resultado = alcance: tem de ser o alcance do período, não a soma dos dias */r._st=effStatus(e)==="ACTIVE"?0:1;r._budget=e.daily_budget||e.lifetime_budget;r._created=e.created_time;r._end=e.stop_time?new Date(e.stop_time):null;
     if(lv==="account"){const a=e._a;r._budget=acctBudget(e.account_id);r._st=a.error?2:e._active?0:1;r._nact=e._active;
       if(S.filter==="delivery"&&!(r.impressions>0||e._active))continue;if(S.filter==="active"&&!e._active)continue;out.push(r);continue}
@@ -545,10 +546,11 @@ function totals(R,lv){const T={level:lv,_e:{},results:0,cur:R[0]?.cur||"EUR"};co
     const ids=sc.kind==="all"?(S.acct==="all"?S.accounts.map(a=>a.account_id):[S.acct]):[sc.id];
     src=ids.map(id=>{const m=by[keyLv][id]||{};const o={};for(const k of MET)o[k]=m[k]||0;
       o.rtype=m.rtypes?(m.rtypes.size===1?[...m.rtypes][0]:null):undefined;o.results=m.rtypes&&m.rtypes.size===1&&!m.rnull?m.results:(m.rtypes?null:0);
-      const x=S.reach&&S.reach[keyLv+":"+id];o.reach=x?+x.reach:(o.impressions>0?null:0);if(o.rtype==="reach")o.results=o.reach;return o});
+      const x=S.reach&&S.reach[keyLv+":"+id];const ac=S.accounts.find(a=>a.account_id===(keyLv==="account"?id:(S.ent[id]||{}).account_id))||{};
+      o.reach=x?+x.reach:(o.impressions>0?(/#200|NOT grant/.test(ac.error||"")?undefined:null):0);if(o.rtype==="reach")o.results=o.reach;return o});
     T._scope=true}
   for(const k of MET)T[k]=src.reduce((s,r)=>s+(+r[k]||0),0);
-  if(!S.demo){if(sc)T.reach=src.some(r=>r.reach==null)?null:src.reduce((s,r)=>s+r.reach,0);/* várias contas: soma das contas */
+  if(!S.demo){if(sc)T.reach=src.some(r=>r.reach===undefined)?undefined:src.some(r=>r.reach===null)?null:src.reduce((s,r)=>s+r.reach,0);/* várias contas: soma das contas */
     else T.reach=R.length===1?R[0].reach:undefined}
   const rts=new Set(src.filter(r=>r.rtype!==undefined&&(r.results||r.impressions)).map(r=>r.rtype));T.rtype=rts.size===1?[...rts][0]:null;
   T.results=T.rtype&&!src.some(r=>r.rtype===T.rtype&&r.results==null)?src.reduce((s,r)=>s+(r.results||0),0):null;

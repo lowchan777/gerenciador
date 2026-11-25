@@ -1,0 +1,29 @@
+name: Puxar CRM do servidor
+# 25/11/2026: publica o CRM (painel de leads) em /crm/. A fonte (URL do pacote .tgz no Poco + md5)
+# fica em crm/fonte.txt; mudar esse ficheiro dispara a atualização. Também dá para correr à mão.
+on:
+  push:
+    paths:
+      - crm/fonte.txt
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  puxar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Baixar, conferir e extrair
+        run: |
+          read -r URL MD5 < crm/fonte.txt
+          curl -fsSL "$URL" -o /tmp/crm.tgz
+          echo "$MD5  /tmp/crm.tgz" | md5sum -c -
+          tar xzf /tmp/crm.tgz -C crm
+          ls -la crm
+      - name: Gravar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add crm
+          git diff --cached --quiet || git commit -m "Atualiza o CRM a partir do servidor"
+          git push

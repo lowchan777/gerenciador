@@ -301,7 +301,8 @@ function buildMsg(l){
 const waLink = (l,msg) => `https://wa.me/${waDigits(l)}?text=${encodeURIComponent(msg ?? l.ai_whatsapp ?? buildMsg(l))}`;
 function mailSubj(l){ const c=S.client?.config||{}; return l.ai_email_subject || `${S.forms[l.form_id]?.subject || l.form_name || "O seu pedido"} · ${c.brand||S.client?.name||""}`; }
 function mailBody(l){ const c=S.client?.config||{}; return l.ai_email_body || `${buildMsg(l)}\n\n${c.owner_name||""}`; }
-const mailLink = (l,subj,body) => `mailto:${encodeURIComponent(l.email||"")}?subject=${encodeURIComponent(subj ?? mailSubj(l))}&body=${encodeURIComponent(body ?? mailBody(l))}`;
+const mailLink = (l,subj,body) => `mailto:${encodeURIComponent((l.email||"").trim()).replace(/%40/g,"@")}?subject=${encodeURIComponent(subj ?? mailSubj(l))}&body=${encodeURIComponent(body ?? mailBody(l))}`;
+const gmailLink = (l,subj,body) => `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent((l.email||"").trim())}&su=${encodeURIComponent(subj ?? mailSubj(l))}&body=${encodeURIComponent(body ?? mailBody(l))}`;
 
 /* ---------- período ---------- */
 const PRESETS=[["hoje","Hoje"],["ontem","Ontem"],["7d","Últimos 7 dias"],["30d","Últimos 30 dias"],["mes","Este mês"],["mesant","Mês anterior"],["tudo","Desde o início"],["custom","Escolher datas…"]];
@@ -473,7 +474,7 @@ function sheet(){
         <div class="brow"><a class="btn wa" id="wa" href="${esc(waLink(l,msg))}" target="_blank" rel="noopener" data-wa="${esc(l.id)}">${ICON.wa}Abrir no WhatsApp</a><button class="btn" data-copy-msg>Copiar</button></div>
         <div class="hint">Pode mudar o texto antes de abrir.${l.status==="novo"?` Ao abrir, a lead passa a ${esc(statusLabel("contactado"))}.`:""}</div></div>
       ${l.email?`<div class="box"><h3>E-mail</h3><input id="msubj" class="inp" aria-label="Assunto do e-mail" value="${esc(msubj)}"><textarea id="mbody" aria-label="Texto do e-mail" style="min-height:150px">${esc(mbody)}</textarea>
-        <div class="brow"><a class="btn" id="ml" href="${esc(mailLink(l,msubj,mbody))}" data-ml="${esc(l.id)}">${ICON.mail}Abrir e-mail</a><button class="btn" data-copy-mail>Copiar</button></div>
+        <div class="brow"><a class="btn" id="gm" href="${esc(gmailLink(l,msubj,mbody))}" target="_blank" rel="noopener" data-ml="${esc(l.id)}">${ICON.mail}Gmail</a><a class="btn" id="ml" href="${esc(mailLink(l,msubj,mbody))}" data-ml="${esc(l.id)}">${ICON.mail}App de e-mail</a><button class="btn" data-copy-mail>Copiar</button></div>
         <div class="hint">${l.ai_email_body?"Texto escrito pela IA para esta pessoa. ":""}Abre o seu programa de e-mail já com o texto.${l.status==="novo"?` Ao abrir, a lead passa a ${esc(statusLabel("contactado"))}.`:""}</div></div>`:""}
       <div class="box"><h3>Em que ponto está</h3><div class="stg" role="group" aria-label="Estado">${STATUS.map(([k])=>`<button data-st="${k}" aria-pressed="${l.status===k}">${esc(statusLabel(k))}</button>`).join("")}</div>
         <div class="hint">Em breve: quando marcar Visita, Proposta ou Fechado, a Meta recebe essa conversão e os anúncios passam a procurar pessoas parecidas.${l.capi_sent_at?" Conversão enviada.":""}</div></div>
@@ -517,7 +518,7 @@ function render(){
 document.addEventListener("click", async e=>{
   const t=e.target.closest("[data-wa],[data-f],[data-lead],[data-close],[data-st],[data-tab],[data-imo],[data-view],[data-copy],[data-copy-msg],[data-ml],[data-copy-mail],#savenote,#out,#undo,#more");
   if(!t) return;
-  if(t.dataset.ml){ e.stopPropagation(); const l=S.leads.find(x=>x.id===t.dataset.ml); t.href=mailLink(l,$("#msubj").value,$("#mbody").value);
+  if(t.dataset.ml){ e.stopPropagation(); const l=S.leads.find(x=>x.id===t.dataset.ml); t.href=(t.id==="gm"?gmailLink:mailLink)(l,$("#msubj").value,$("#mbody").value);
     const patch={email_sent_at:new Date().toISOString()}; if(l.status==="novo") patch.status="contactado"; setTimeout(()=>save(l,patch),50); return; }
   if(t.dataset.wa){ e.stopPropagation(); const l=S.leads.find(x=>x.id===t.dataset.wa); if(t.id==="wa") t.href=waLink(l,$("#msg").value);
     const patch={message_sent_at:new Date().toISOString()}; if(l.status==="novo") patch.status="contactado"; setTimeout(()=>save(l,patch),50); return; }
@@ -542,7 +543,7 @@ document.addEventListener("keydown", e=>{
 document.addEventListener("input", e=>{
   if(e.target.id==="q"){ S.q=e.target.value; S.limit=60; render(); }
   if(e.target.id==="msg"){ const l=S.leads.find(x=>x.id===S.open); if(l) l._msg=e.target.value; }
-  if(e.target.id==="msubj"||e.target.id==="mbody"){ const l=S.leads.find(x=>x.id===S.open); if(l){ l._msubj=$("#msubj").value; l._mbody=$("#mbody").value; const a=$("#ml"); if(a) a.href=mailLink(l,l._msubj,l._mbody); } }
+  if(e.target.id==="msubj"||e.target.id==="mbody"){ const l=S.leads.find(x=>x.id===S.open); if(l){ l._msubj=$("#msubj").value; l._mbody=$("#mbody").value; const a=$("#ml"); if(a) a.href=mailLink(l,l._msubj,l._mbody); const g=$("#gm"); if(g) g.href=gmailLink(l,l._msubj,l._mbody); } }
 });
 document.addEventListener("change", e=>{
   if(e.target.dataset.task){ const t=S.tasks.find(x=>String(x.id)===e.target.dataset.task); saveTask(t,{done:e.target.checked,done_at:e.target.checked?new Date().toISOString():null}); }

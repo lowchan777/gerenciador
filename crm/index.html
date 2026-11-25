@@ -345,12 +345,14 @@ function loadDemo(){
 }
 
 /* ---------- dados reais ---------- */
+// 25/11: o Supabase devolve no máximo 1000 linhas por pedido; buscar por páginas
+async function allRows(mk){ const out=[]; for(let i=0;i<50;i++){ const r=await mk().range(i*1000,i*1000+999); if(r.error) return r; out.push(...r.data); if(r.data.length<1000) break; } return {data:out,error:null}; }
 async function loadLive(){
   const sb=S.sb, cid=S.client.id;
   const [f,l,c,t]=await Promise.all([
     sb.from("forms").select("form_id,name,subject").eq("client_id",cid),
-    sb.from("leads").select("*").eq("client_id",cid).gte("created_time",new Date(Date.now()-400*86400e3).toISOString()).order("created_time",{ascending:false}).limit(5000),
-    sb.from("campaigns_daily").select("*").eq("client_id",cid).gte("day",lday(Date.now()-400*86400e3)).limit(10000),
+    allRows(()=>sb.from("leads").select("*").eq("client_id",cid).gte("created_time",new Date(Date.now()-400*86400e3).toISOString()).order("created_time",{ascending:false}).order("id")),
+    allRows(()=>sb.from("campaigns_daily").select("*").eq("client_id",cid).gte("day",lday(Date.now()-400*86400e3)).order("day").order("campaign_id").order("adset_id")),
     sb.from("tasks").select("*").eq("client_id",cid).order("due",{ascending:true})]);
   for(const r of [f,l,c,t]) if(r.error) throw r.error;
   S.forms=Object.fromEntries(f.data.map(x=>[x.form_id,x])); S.leads=l.data; S.camps=c.data; S.tasks=t.data;

@@ -658,8 +658,13 @@ async function openDet(id,force){const e=S.ent[id];if(!e)return;S.detOpen=id;con
   try{const r=await getDet(e,force);if(!r||S.detOpen!==id)return;
     if(r.result!=="ok"||!r.data)throw new Error((r.result||"").replace(/^erro /,""));
     $("#detBody").innerHTML=e.level==="ad"?detAd(r.data,e):detAdset(r.data,e);
+    if(e.level==="ad"&&!r.data.previews)loadPv(e,id);/* pré-carregado sem prévias: pede-as agora, o resto já está à vista */
     const ag=$("#detBody").insertAdjacentHTML("beforeend",`<div class="muted" style="font-size:12px">Lido na Meta ${agoTxt(r.done_at)}.</div>`)}
   catch(ex){if(S.detOpen===id)$("#detBody").innerHTML=`<div class="warn">Não consegui ler: ${esc(ex.message||ex)}</div>`}}
+async function loadPv(e,id){try{const r=await getDet(e,true);if(S.detOpen!==id||!r||r.result!=="ok")return;S.detPv=r.data.previews||[];
+  const i0=Math.max(0,S.detPv.findIndex(p=>p.html));S.detLinks.share=r.data.preview_shareable_link||S.detLinks.share;
+  $("#pvTabs").innerHTML=S.detPv.map((p,i)=>`<button class="btn sm ${i===i0?"on":""}" data-pv="${i}">${esc(p.nome)}</button>`).join("");$("#pvBox").innerHTML=pvFrame(S.detPv[i0]);$("#pvLinks").innerHTML=pvLinks(i0)}
+  catch(ex){if(S.detOpen===id)$("#pvBox").innerHTML=`<div class="wait">Não consegui a prévia: ${esc(ex.message||ex)}</div>`}}
 function pvUrl(p){const m=/src="([^"]+)"/.exec(p?.html||"");return m?m[1].replace(/&amp;/g,"&"):""}
 function pvLinks(i){const L=S.detLinks||{},u=pvUrl(S.detPv[i]),b=(t,v)=>v?`<button class="btn sm" data-copyl="${esc(v)}">${t}</button>`:"";
   return b("Copiar link do post (Instagram)",L.ig)+b("Copiar link do post (Facebook)",L.fb)+b("Copiar link da prévia (todos os posicionamentos)",L.share)+b("Copiar link deste posicionamento",u)}
@@ -671,7 +676,7 @@ function detAd(d,e){const c=d.creative||{},os=c.object_story_spec||{},ld=os.link
   const cta=c.call_to_action_type||ld.call_to_action?.type||vd.call_to_action?.type||(af.call_to_action_types||[])[0];
   const link=ld.link||vd.call_to_action?.value?.link||c.link_url||(af.link_urls||[]).map(l=>l.website_url).join(" | ");
   const ig=c.instagram_permalink_url;S.detLinks={ig,fb:c.effective_object_story_id?"https://www.facebook.com/"+c.effective_object_story_id:"",share:d.preview_shareable_link||""};
-  return`<div class="pvwrap"><div><div class="pvtabs">${S.detPv.map((p,i)=>`<button class="btn sm ${i===i0?"on":""}" data-pv="${i}">${esc(p.nome)}</button>`).join("")}</div><div id="pvBox">${pvFrame(S.detPv[i0])}</div><div id="pvLinks" class="chips" style="margin-top:10px;max-width:380px">${pvLinks(i0)}</div></div>
+  return`<div class="pvwrap"><div><div class="pvtabs" id="pvTabs">${S.detPv.map((p,i)=>`<button class="btn sm ${i===i0?"on":""}" data-pv="${i}">${esc(p.nome)}</button>`).join("")}</div><div id="pvBox">${d.previews?pvFrame(S.detPv[i0]):'<div class="wait" style="width:340px">A carregar a prévia da Meta…</div>'}</div><div id="pvLinks" class="chips" style="margin-top:10px;max-width:380px">${pvLinks(i0)}</div></div>
     <div style="flex:1;min-width:280px">
     ${sec("Anúncio",tr("Estado",esc(STT[d.effective_status]||d.effective_status||d.status))+tr("Campanha",esc(d.campaign?.name||""))+tr("Conjunto",esc(d.adset?.name||""))+tr("Criado",dtTxt(d.created_time)))}
     ${sec("Criativo",tr("Texto principal",body?`<div class="txt">${esc(body)}</div>`:"")+tr("Título",esc(title||""))+tr("Descrição",esc(desc||""))+tr("Botão",esc(CTA[cta]||cta||""))

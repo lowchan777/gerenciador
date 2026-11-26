@@ -3,6 +3,10 @@
 (function(){
 const D = {
  en: {
+  "Procedimentos":"Treatments","Procedimento":"Treatment","Todos os procedimentos":"All treatments","Sem procedimento":"No treatment","Outro procedimento":"Other treatment","Vários procedimentos":"Several treatments",
+  "Toque num procedimento para ver só as leads dele.":"Tap a treatment to see only its leads.","Experimente outro período ou outro procedimento.":"Try another period or treatment.",
+  "Ex.: ligou de volta, quer marcar para sábado":"E.g.: called back, wants to book for Saturday","Marcação":"Booked","Orçamento":"Quote","Realizado":"Done",
+  "Sobrancelhas":"Brows","Lábios":"Lips","Formação":"Training",
   "Painel de leads":"Leads dashboard","Ao vivo":"Live","Sair":"Log out","Entrar":"Log in","Senha":"Password","E-mail":"Email",
   "A carregar…":"Loading…","Leads":"Leads","Imóveis":"Properties","Imóvel":"Property","Pendências":"To-dos","Lista":"List","Quadro":"Board",
   "Ver em lista":"List view","Ver em quadro":"Board view","Ver todas":"See all","Mostrar mais":"Show more","Todas":"All","Todos os imóveis":"All properties",
@@ -35,6 +39,10 @@ const D = {
   "Conversão enviada.":"Conversion sent.","agora":"now","ontem":"yesterday"
  },
  nl: {
+  "Procedimentos":"Behandelingen","Procedimento":"Behandeling","Todos os procedimentos":"Alle behandelingen","Sem procedimento":"Geen behandeling","Outro procedimento":"Andere behandeling","Vários procedimentos":"Meerdere behandelingen",
+  "Toque num procedimento para ver só as leads dele.":"Tik op een behandeling om alleen de leads daarvan te zien.","Experimente outro período ou outro procedimento.":"Probeer een andere periode of behandeling.",
+  "Ex.: ligou de volta, quer marcar para sábado":"Bv.: teruggebeld, wil zaterdag een afspraak","Marcação":"Afspraak","Orçamento":"Offerte","Realizado":"Uitgevoerd",
+  "Sobrancelhas":"Wenkbrauwen","Lábios":"Lippen","Formação":"Opleiding",
   "Painel de leads":"Leadsdashboard","Ao vivo":"Live","Sair":"Afmelden","Entrar":"Aanmelden","Senha":"Wachtwoord","E-mail":"E-mail",
   "A carregar…":"Laden…","Leads":"Leads","Imóveis":"Panden","Imóvel":"Pand","Pendências":"Taken","Lista":"Lijst","Quadro":"Bord",
   "Ver em lista":"Lijstweergave","Ver em quadro":"Bordweergave","Ver todas":"Alles bekijken","Mostrar mais":"Meer tonen","Todas":"Alle","Todos os imóveis":"Alle panden",

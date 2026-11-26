@@ -238,6 +238,7 @@ footer{margin-top:32px;color:var(--muted);font-size:12px;text-align:center}
 const CFG = { url: "https://odjdqzdjfsvhxpavcdpv.supabase.co", key: "sb_publishable_t71KrNT7cYLufRjqPZIyNg_yLxh_F83" };
 const STATUS = [["novo","Nova"],["contactado","Contactada"],["nao_atende","Não atende"],["visita","Visita"],["proposta","Proposta"],["fechado","Fechado"],["numero_errado","Número errado"],["perdido","Perdido"]];
 const ICON = {
+  spark:'<svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg>',
   mail:'<svg class="i" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M4 7l8 6 8-6"/></svg>',
   wa:'<svg class="i" viewBox="0 0 24 24"><path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.6z"/><path d="M9 8.6c.2 2.9 3 5.7 6 6l1.2-1.4-2-1-1 .9c-1-.4-2-1.4-2.4-2.4l.9-1-1-2z" fill="currentColor" stroke="none"/></svg>',
   search:'<svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
@@ -267,16 +268,26 @@ const isPend = l => l.status==="novo" && (!S.client?.config?.since || new Date(l
 function initials(n){const p=String(n||"?").trim().split(/\s+/); return ((p[0]||"?")[0]+((p.length>1?p[p.length-1]:"")[0]||"")).toUpperCase();}
 function avColor(n){let h=0; for(const c of String(n)) h=(h*31+c.charCodeAt(0))%360; return `hsl(${h} 30% 46%)`;}
 
-/* imóvel = conjunto de anúncios */
+/* imóvel = conjunto de anúncios; clientes de beleza (config.vertical="beleza"): procedimento (26/11) */
+const VERT = () => S.client?.config?.vertical === "beleza";
+const PROC_PAD = [["Sobrancelhas","sobrancelh|brows|\\[SOB\\]|fio a fio|microblading|nanoblading"],["Eyeliner","eyeliner|delineado|olhos"],
+  ["Lábios","labial|l[aá]bio|lips|boca"],["Laser","laser|remo[cç][aã]o"],["Formação","forma[cç][aã]o|forma[cç][oõ]es|curso|aluna"]];
+function procOf(txts, def){ const R=S.client?.config?.procedimentos||PROC_PAD; const t=txts.filter(Boolean).join(" | ");
+  for(const [lab,re] of R){ try{ if(new RegExp(re,"i").test(t)) return lab; }catch{} } return def; }
+const W = t => !VERT() ? t : ({"Imóveis":"Procedimentos","Imóvel":"Procedimento","Todos os imóveis":"Todos os procedimentos","Sem imóvel":"Sem procedimento",
+  "Toque num imóvel para ver só as leads dele.":"Toque num procedimento para ver só as leads dele.",
+  "Experimente outro período ou outro imóvel.":"Experimente outro período ou outro procedimento.",
+  "Ex.: ligou de volta, quer visita sábado":"Ex.: ligou de volta, quer marcar para sábado"}[t] || t);
 function imoLabel(raw){
+  if(VERT()) return raw || "Outro procedimento";
   if(!raw) return "Sem imóvel";
   const o=(S.client?.config?.imoveis)||{}; if(o[raw]) return o[raw];
   let s=String(raw); while(/^\s*\[[^\]]*\]/.test(s)) s=s.replace(/^\s*\[[^\]]*\]\s*/,"");
   s=s.split(" | ")[0].replace(/^(Apartamento|Moradia|Casa)\s+/i,"").trim();
   return s||raw;
 }
-const imoOfLead = l => l.adset_name || "";
-const imoOfCamp = c => c.adset_name || c.campaign_name || "";
+const imoOfLead = l => VERT() ? procOf([l.form_name,l.adset_name,l.ad_name,l.campaign_name,...Object.values(l.answers||{})], "") : (l.adset_name || "");
+const imoOfCamp = c => VERT() ? procOf([c.adset_name,c.campaign_name], "Vários procedimentos") : (c.adset_name || c.campaign_name || "");
 
 const S = { mode:null, sb:null, user:null, isAdmin:false, clients:[], client:null, forms:{}, leads:[], camps:[], tasks:[], events:{}, tab:"leads", view:"list", filter:null, q:"", open:null, preset:"7d", from:null, to:null, imo:"", limit:60 };
 try{ const v=JSON.parse(localStorage.getItem("crm_ui4")||"{}"); Object.assign(S,{view:v.view||S.view,preset:v.preset||S.preset}); if(v.preset==="custom"){S.from=v.from;S.to=v.to;} }catch{}
@@ -396,7 +407,7 @@ function filters(){
   const pLabel=S.preset==="custom"?(a===b?dm(a):dm(a)+" – "+dm(b)):pl;
   return `<div class="filters">
     <label class="pill">${ICON.cal}<b>${esc(pLabel)}</b><select id="preset" aria-label="Período">${PRESETS.map(([k,t])=>`<option value="${k}" ${S.preset===k?"selected":""}>${t}</option>`).join("")}</select></label>
-    ${im.length>1?`<label class="pill ${S.imo?"on":""}">${ICON.home}<b>${esc(S.imo?imoLabel(S.imo):"Todos os imóveis")}</b><select id="imo" aria-label="Imóvel"><option value="">Todos os imóveis</option>${im.map(r=>`<option value="${esc(r.key)}" ${S.imo===r.key?"selected":""}>${esc(r.label)} (${r.n})</option>`).join("")}</select></label>`:""}
+    ${im.length>1?`<label class="pill ${S.imo?"on":""}">${VERT()?ICON.spark:ICON.home}<b>${esc(S.imo?imoLabel(S.imo):W("Todos os imóveis"))}</b><select id="imo" aria-label="${W("Imóvel")}"><option value="">${W("Todos os imóveis")}</option>${im.map(r=>`<option value="${esc(r.key)}" ${S.imo===r.key?"selected":""}>${esc(r.label)} (${r.n})</option>`).join("")}</select></label>`:""}
   </div>${S.preset==="custom"?`<div class="dates"><input type="date" id="df" value="${a}" max="${lday(Date.now())}" aria-label="De"><span>até</span><input type="date" id="dt" value="${b}" max="${lday(Date.now())}" aria-label="Até"></div>`:""}`;
 }
 function nowCard(){
@@ -438,7 +449,7 @@ function leadsView(){
   if(!S.leads.length) return head+`<div class="empty"><b>Ainda não há leads</b>Quando entrar a primeira pelo formulário da Meta, aparece aqui na hora.</div>`;
   if(S.view==="board") return head+boardView(L);
   return head+(L.length?`<div class="list">${L.slice(0,S.limit).map(rowHTML).join("")}</div>${L.length>S.limit?`<div class="more"><button class="btn sm" id="more">Mostrar mais</button></div>`:""}`
-    :`<div class="empty"><b>Nada por aqui</b>Experimente outro período ou outro imóvel.</div>`);
+    :`<div class="empty"><b>Nada por aqui</b>${W("Experimente outro período ou outro imóvel.")}</div>`);
 }
 function boardView(L){
   return `<div class="board">${STATUS.map(([k])=>{const C=L.filter(l=>l.status===k);
@@ -450,7 +461,7 @@ function imosView(){
   const rows=imoveis().map(im=>{ const spend=rc.filter(x=>imoOfCamp(x)===im.key).reduce((s,x)=>s+ +x.spend,0); const n=rl.filter(l=>imoOfLead(l)===im.key).length; return {...im,spend,leads:n}; })
     .filter(o=>o.spend>0||o.leads>0).sort((a,b)=>b.leads-a.leads||b.spend-a.spend);
   if(!rows.length) return `<div class="empty"><b>Sem atividade neste período</b>Os números das campanhas entram uma vez por dia, de manhã.</div>`;
-  return `<p class="note">Toque num imóvel para ver só as leads dele.</p><div class="imos">${rows.map(o=>`<div class="imo${S.imo===o.key?" sel":""}" data-imo="${esc(o.key)}" role="button" tabindex="0">
+  return `<p class="note">${W("Toque num imóvel para ver só as leads dele.")}</p><div class="imos">${rows.map(o=>`<div class="imo${S.imo===o.key?" sel":""}" data-imo="${esc(o.key)}" role="button" tabindex="0">
       <div><h3>${esc(o.label)}</h3><span class="s ${o.status==="ACTIVE"?"on":""}"><i></i>${o.status==="ACTIVE"?"Anúncio ativo":o.status?"Anúncio em pausa":"Sem anúncio"}</span></div>
       <dl><div><dt>Leads</dt><dd>${o.leads}</dd></div><div><dt>Custo por lead</dt><dd>${o.spend&&o.leads?eur(o.spend/o.leads):"—"}</dd></div><div><dt>Investido</dt><dd>${o.spend?eur(o.spend,0):"—"}</dd></div></dl>
     </div>`).join("")}</div>`;
@@ -479,9 +490,9 @@ function sheet(){
         <div class="brow"><a class="btn" id="gm" href="${esc(gmailLink(l,msubj,mbody))}" target="_blank" rel="noopener" data-ml="${esc(l.id)}">${ICON.mail}Gmail</a><a class="btn" id="ml" href="${esc(mailLink(l,msubj,mbody))}" data-ml="${esc(l.id)}">${ICON.mail}App de e-mail</a><button class="btn" data-copy-mail>Copiar</button></div>
         <div class="hint">${l.ai_email_body?"Texto escrito pela IA para esta pessoa. ":""}Abre o seu programa de e-mail já com o texto.${l.status==="novo"?` Ao abrir, a lead passa a ${esc(statusLabel("contactado"))}.`:""}</div></div>`:""}
       <div class="box"><h3>Em que ponto está</h3><div class="stg" role="group" aria-label="Estado">${STATUS.map(([k])=>`<button data-st="${k}" aria-pressed="${l.status===k}">${esc(statusLabel(k))}</button>`).join("")}</div>
-        <div class="hint">Em breve: quando marcar Visita, Proposta ou Fechado, a Meta recebe essa conversão e os anúncios passam a procurar pessoas parecidas.${l.capi_sent_at?" Conversão enviada.":""}</div></div>
+        <div class="hint">Em breve: quando marcar ${esc(statusLabel("visita"))}, ${esc(statusLabel("proposta"))} ou ${esc(statusLabel("fechado"))}, a Meta recebe essa conversão e os anúncios passam a procurar pessoas parecidas.${l.capi_sent_at?" Conversão enviada.":""}</div></div>
       <div class="box"><h3>O que respondeu</h3><dl class="ans">${Object.entries(l.answers||{}).map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")||'<div class="hint">Sem respostas extra.</div>'}</dl></div>
-      <div class="box"><h3>Notas</h3><textarea id="notes" style="min-height:84px" placeholder="Ex.: ligou de volta, quer visita sábado">${esc(l.notes||"")}</textarea><div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn sm pri" id="savenote">Guardar nota</button></div></div>
+      <div class="box"><h3>Notas</h3><textarea id="notes" style="min-height:84px" placeholder=W("Ex.: ligou de volta, quer visita sábado")>${esc(l.notes||"")}</textarea><div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn sm pri" id="savenote">Guardar nota</button></div></div>
       <div class="box"><details><summary>Detalhes e histórico</summary>
         <dl class="kv">${l.form_name?`<dt>Formulário</dt><dd>${esc(l.form_name)}</dd>`:""}${l.ad_name?`<dt>Anúncio</dt><dd>${esc(l.ad_name)}</dd>`:""}${l.city?`<dt>Cidade</dt><dd>${esc(l.city)}</dd>`:""}<dt>Origem</dt><dd>${/ig|insta/i.test(l.platform||"")?"Instagram":"Facebook"}</dd></dl>
         ${ev?`<ul class="tl">${ev.slice().reverse().map(e=>`<li><time>${fmtDT(e.created_at)}${e.who?" · "+esc(e.who):""}</time>${evTxt(e)}</li>`).join("")}</ul>`:'<div class="hint">A carregar…</div>'}</details></div>
@@ -496,7 +507,7 @@ function render(){
       <div class="hint">Os dados ficam em servidores na União Europeia. Só quem tem acesso a este cliente os vê.</div></form>`; return; }
   const c=S.client; const qFocus=document.activeElement?.id==="q"; const sy=window.scrollY;
   const novos=S.leads.filter(l=>isPend(l)&&(!S.imo||imoOfLead(l)===S.imo)).length, tOpen=S.tasks.filter(t=>!t.done).length;
-  const tabs=[["leads","Leads",ICON.users,novos],["imos","Imóveis",ICON.home,0],["tasks","Pendências",ICON.check,tOpen]];
+  const tabs=[["leads","Leads",ICON.users,novos],["imos",W("Imóveis"),VERT()?ICON.spark:ICON.home,0],["tasks","Pendências",ICON.check,tOpen]];
   app.innerHTML=`${S.mode==="demo"?`<div class="demo"><span>Pré-visualização com dados fictícios</span></div>`:""}
     <header class="top"><div class="brand"><span class="mark">${esc(initials(c.config?.brand||c.name))}</span><div style="min-width:0"><small>Painel de leads</small><h1>${esc(c.config?.brand||c.name)}</h1></div></div>
       <div class="topr"><span class="live"><i></i><span>Ao vivo</span></span>
